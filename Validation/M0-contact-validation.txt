@@ -1,0 +1,19 @@
+PASS Windup cannot damage player
+PASS Actual animated gauntlet contacts player and causes exactly one 14-damage hit
+PASS Damage box matches visible gauntlet size
+PASS Recovery and persistent model overlap do not repeat damage
+PASS Side-step out of actual swing misses despite nearby player
+PASS Cover placed during windup blocks attack contact through wall
+PASS Stagger interrupts pending attack and cancels damage
+PASS Empty dodge has no slow motion or counter reward
+PASS Actual avoided swing triggers grayscale slow motion and counter without damage
+PASS URP camera post processing enabled for real grayscale
+PASS Pause freezes effect clock beyond its normal duration
+PASS Resume restores remaining slow-motion speed
+PASS Inventory also freezes slow-motion clock without unpausing
+PASS Effect expires smoothly and restores clock and physics step
+PASS Animated contact into held guard reduces 90% damage and triggers recoil
+PASS Guard impact physically pushes player backward
+PASS Guard recoil respects rear-wall collision
+PASS Restart clears active grayscale and slow motion
+RESULT: PASS; failures=0
