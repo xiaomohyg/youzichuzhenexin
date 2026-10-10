@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using System.Collections.Generic;
 
 namespace M0
 {
@@ -12,20 +14,60 @@ namespace M0
         public Transform BodySword, BodyGun;
         float guardBlend;
         Renderer[] firstPersonRenderers;
+        Renderer[] bodyRenderers, leftHandRenderers;
+        readonly Dictionary<Renderer, ShadowCastingMode> originalShadowModes = new Dictionary<Renderer, ShadowCastingMode>();
+        readonly Dictionary<Renderer, bool> originalEnabled = new Dictionary<Renderer, bool>();
         static readonly Vector3 Rest = new Vector3(0.36f, -0.38f, 0.62f);
         static readonly Quaternion RestRotation = Quaternion.Euler(-12, 0, -18);
         public void Present(M0Player p)
         {
-            Body.gameObject.SetActive(p.ThirdPerson);
-            if (firstPersonRenderers == null) firstPersonRenderers = Root.GetComponentsInChildren<Renderer>(true);
-            foreach (var renderer in firstPersonRenderers) renderer.enabled = !p.ThirdPerson;
+            CacheRenderers();
+            Body.gameObject.SetActive(true);
+            Root.gameObject.SetActive(!p.ThirdPerson);
+            foreach (var renderer in firstPersonRenderers)
+            {
+                renderer.enabled = originalEnabled[renderer];
+                renderer.shadowCastingMode = originalShadowModes[renderer];
+            }
+            foreach (var renderer in bodyRenderers)
+            {
+                renderer.enabled = originalEnabled[renderer];
+                renderer.shadowCastingMode = originalShadowModes[renderer];
+                bool firstPersonOnlyPart = renderer.transform.IsChildOf(Head) ||
+                    renderer.transform.IsChildOf(BodyLeftArm) || renderer.transform.IsChildOf(BodyRightArm);
+                if (firstPersonOnlyPart) renderer.enabled = p.ThirdPerson;
+            }
+            if (!p.ThirdPerson)
+                foreach (var renderer in leftHandRenderers) renderer.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
             BodySword.gameObject.SetActive(p.ThirdPerson && p.Armed && !p.Ranged);
             BodyGun.gameObject.SetActive(p.ThirdPerson && p.Ranged);
             Root.SetPositionAndRotation(p.ThirdPerson ? p.EyePosition : p.View.transform.position,
                 p.ThirdPerson ? p.transform.rotation * Quaternion.Euler(p.LookAngles.y * 0.4f, 0, 0) : p.View.transform.rotation);
             guardBlend = Mathf.MoveTowards(guardBlend, p.Blocking ? 1 : 0, Time.deltaTime * (p.Blocking ? 12 : 7));
             Vector3 position = Rest; Quaternion rotation = RestRotation;
-            if (p.Attacking)
+            if (p.CounterAttacking)
+            {
+                float t = p.CounterProgress;
+                if (p.CounterRanged)
+                {
+                    Vector3 charge = new Vector3(0.02f, -0.30f, 0.34f), release = new Vector3(-0.04f, -0.12f, 0.86f);
+                    Quaternion chargeRot = Quaternion.Euler(-42, 12, -8), releaseRot = Quaternion.Euler(-4, 4, -5);
+                    if (t < 0.62f)
+                    { float u = Mathf.SmoothStep(0, 1, t / 0.62f); position = Vector3.Lerp(Rest, charge, u); rotation = Quaternion.Slerp(RestRotation, chargeRot, u); }
+                    else
+                    { float u = Mathf.SmoothStep(0, 1, (t - 0.62f) / 0.38f); position = Vector3.Lerp(charge, release, u); rotation = Quaternion.Slerp(chargeRot, releaseRot, u); }
+                }
+                else
+                {
+                    Vector3 wind = new Vector3(-0.42f, -0.08f, 0.30f), strike = new Vector3(0.08f, -0.10f, 1.03f);
+                    Quaternion windRot = Quaternion.Euler(-112, -55, 88), strikeRot = Quaternion.Euler(42, 10, -28);
+                    if (t < 0.62f)
+                    { float u = Mathf.SmoothStep(0, 1, t / 0.62f); position = Vector3.Lerp(wind, strike, u); rotation = Quaternion.Slerp(windRot, strikeRot, u); }
+                    else
+                    { float u = Mathf.SmoothStep(0, 1, (t - 0.62f) / 0.38f); position = Vector3.Lerp(strike, Rest, u); rotation = Quaternion.Slerp(strikeRot, RestRotation, u); }
+                }
+            }
+            else if (p.Attacking)
             {
                 Vector3 wind, strike; Vector3 windRot, strikeRot;
                 if (p.HeavyAttack) { wind = new Vector3(0.18f, 0.05f, 0.48f); strike = new Vector3(0.03f, -0.55f, 0.85f); windRot = new Vector3(-85, 10, 15); strikeRot = new Vector3(70, 0, -15); }
@@ -40,7 +82,8 @@ namespace M0
                 else
                 { float u = Mathf.SmoothStep(0, 1, (t - strikeEnd) / (1 - strikeEnd)); position = Vector3.Lerp(strike, Rest, u); rotation = Quaternion.Slerp(Quaternion.Euler(strikeRot), RestRotation, u); }
             }
-            position = Vector3.Lerp(position, new Vector3(0.12f, -0.22f, 0.55f), guardBlend);
+            // Keep the visible blade in front of the body capsule so the model, not a view cone, catches strikes.
+            position = Vector3.Lerp(position, new Vector3(0.30f, -0.15f, 0.80f), guardBlend);
             rotation = Quaternion.Slerp(rotation, Quaternion.Euler(-12, -12, 62), guardBlend);
             position += new Vector3(0.04f, -0.07f, -0.16f) * p.GuardImpact;
             rotation *= Quaternion.Euler(-22 * p.GuardImpact, 0, 12 * p.GuardImpact);
@@ -56,7 +99,13 @@ namespace M0
             LeftHand.localRotation = Quaternion.Euler(-10, 0, guardBlend * -22);
             LeftHand.localPosition += new Vector3(0.02f, -0.045f, -0.13f) * p.GuardImpact;
             LeftHand.localRotation *= Quaternion.Euler(-18 * p.GuardImpact, 0, -9 * p.GuardImpact);
-            if (p.Attacking && p.HeavyAttack)
+            if (p.CounterAttacking && !p.CounterRanged)
+            {
+                float counter = Mathf.Sin(p.CounterProgress * Mathf.PI);
+                LeftHand.localPosition = Vector3.Lerp(LeftHand.localPosition, RightHand.localPosition + new Vector3(-0.17f, -0.10f, -0.02f), counter);
+                LeftHand.localRotation = Quaternion.Slerp(LeftHand.localRotation, Quaternion.Euler(-38, -18, -22), counter);
+            }
+            else if (p.Attacking && p.HeavyAttack)
                 LeftHand.localPosition = Vector3.Lerp(LeftHand.localPosition, RightHand.localPosition + new Vector3(-0.13f, -0.09f, -0.015f), Mathf.Sin(p.AttackProgress * Mathf.PI));
             if (p.IsDodging) LeftHand.localPosition += new Vector3(0.06f, -0.16f, -0.12f) * Mathf.Sin(p.DodgeProgress * Mathf.PI);
             Arms(RightUpper, RightForearm, RightHand.localPosition, 1);
@@ -65,7 +114,27 @@ namespace M0
             bool trail = p.Armed && !p.Ranged && p.Attacking && p.AttackProgress >= p.StrikePhase && p.AttackProgress < p.StrikePhase + 0.24f;
             SwordTrail.emitting = trail;
             if (!p.Armed || p.Ranged || !p.Attacking) SwordTrail.Clear();
+            p.SampleMeleeSweep();
             BodyPose(p);
+        }
+        void CacheRenderers()
+        {
+            if (firstPersonRenderers != null && bodyRenderers != null && leftHandRenderers != null &&
+                originalEnabled.Count == firstPersonRenderers.Length + bodyRenderers.Length &&
+                originalShadowModes.Count == originalEnabled.Count) return;
+            originalEnabled.Clear(); originalShadowModes.Clear();
+            firstPersonRenderers = Root.GetComponentsInChildren<Renderer>(true);
+            bodyRenderers = Body.GetComponentsInChildren<Renderer>(true);
+            leftHandRenderers = LeftHand.GetComponentsInChildren<Renderer>(true);
+            Cache(firstPersonRenderers); Cache(bodyRenderers);
+        }
+        void Cache(Renderer[] renderers)
+        {
+            foreach (var renderer in renderers)
+            {
+                originalEnabled[renderer] = renderer.enabled;
+                originalShadowModes[renderer] = renderer.shadowCastingMode;
+            }
         }
         static void Segment(Transform part, Vector3 a, Vector3 b, float width)
         {
@@ -81,7 +150,6 @@ namespace M0
         }
         void BodyPose(M0Player p)
         {
-            if (!p.ThirdPerson) return;
             float crouch = Mathf.Clamp01((1.8f - p.GetComponent<CharacterController>().height) / 0.65f);
             float dodge = p.IsDodging ? Mathf.Sin(p.DodgeProgress * Mathf.PI) : 0;
             Body.localPosition = Vector3.down * (crouch * 0.44f + dodge * 0.14f);
@@ -107,7 +175,7 @@ namespace M0
                 BodyLeftArm.localRotation = Quaternion.Euler(-60 * dodge, 0, -20 * dodge);
                 BodyRightArm.localRotation = Quaternion.Euler(-55 * dodge, 10 * dodge, 20 * dodge);
             }
-            Head.localRotation = Quaternion.Euler(p.LookAngles.y * 0.6f, 0, 0);
+            Head.localRotation = Quaternion.Euler(p.LookAngles.y, 0, 0);
         }
     }
 }

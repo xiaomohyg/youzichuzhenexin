@@ -7,7 +7,7 @@ namespace M0
     // Uses unscaled time, but stops the effect clock inside either pause UI.
     public sealed class M0DodgeEffect : MonoBehaviour
     {
-        public float Duration = 0.72f, MinimumTimeScale = 0.25f;
+        public float Duration = 1.18f, MinimumTimeScale = 0.22f;
         public bool Active => remaining > 0;
         public float Saturation => color == null ? 0 : color.saturation.value;
         public float GameplayScale { get; private set; } = 1;

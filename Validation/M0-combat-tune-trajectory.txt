@@ -1,0 +1,38 @@
+19.196 Windup phase=0.000 fist=(-0.490, 0.490, -6.620) hp=100
+19.217 Windup phase=0.000 fist=(-0.448, 0.499, -6.707) hp=100
+19.392 Windup phase=0.078 fist=(-0.054, 0.905, -7.170) hp=100
+19.416 Windup phase=0.131 fist=(-0.021, 0.954, -7.179) hp=100
+19.432 Windup phase=0.165 fist=(0.005, 0.995, -7.182) hp=100
+19.448 Windup phase=0.199 fist=(0.037, 1.045, -7.181) hp=100
+19.463 Windup phase=0.232 fist=(0.069, 1.101, -7.176) hp=100
+19.478 Windup phase=0.264 fist=(0.102, 1.162, -7.164) hp=100
+19.495 Windup phase=0.302 fist=(0.139, 1.239, -7.141) hp=100
+19.512 Windup phase=0.339 fist=(0.171, 1.320, -7.108) hp=100
+19.530 Windup phase=0.377 fist=(0.197, 1.401, -7.065) hp=100
+19.544 Windup phase=0.407 fist=(0.212, 1.465, -7.024) hp=100
+19.559 Windup phase=0.440 fist=(0.221, 1.532, -6.974) hp=100
+19.572 Windup phase=0.468 fist=(0.223, 1.587, -6.927) hp=100
+19.586 Windup phase=0.498 fist=(0.220, 1.644, -6.873) hp=100
+19.604 Windup phase=0.539 fist=(0.204, 1.714, -6.796) hp=100
+19.619 Windup phase=0.572 fist=(0.183, 1.763, -6.734) hp=100
+19.636 Windup phase=0.608 fist=(0.154, 1.809, -6.668) hp=100
+19.654 Windup phase=0.647 fist=(0.113, 1.851, -6.598) hp=100
+19.669 Windup phase=0.680 fist=(0.075, 1.878, -6.544) hp=100
+19.687 Windup phase=0.719 fist=(0.027, 1.903, -6.485) hp=100
+19.701 Windup phase=0.750 fist=(-0.012, 1.916, -6.446) hp=100
+19.716 Windup phase=0.782 fist=(-0.052, 1.926, -6.408) hp=100
+19.729 Windup phase=0.811 fist=(-0.087, 1.932, -6.379) hp=100
+19.746 Windup phase=0.847 fist=(-0.130, 1.935, -6.347) hp=100
+19.760 Windup phase=0.877 fist=(-0.163, 1.936, -6.325) hp=100
+19.775 Windup phase=0.910 fist=(-0.196, 1.934, -6.305) hp=100
+19.791 Windup phase=0.946 fist=(-0.226, 1.932, -6.288) hp=100
+19.807 Windup phase=0.980 fist=(-0.249, 1.929, -6.276) hp=100
+19.822 Attack phase=0.000 fist=(-0.267, 1.926, -6.268) hp=100
+19.840 Attack phase=0.040 fist=(-0.295, 1.921, -6.255) hp=100
+19.983 Attack phase=0.350 fist=(0.051, 1.678, -7.591) hp=86
+20.122 Attack phase=0.651 fist=(-0.297, 1.414, -7.981) hp=86
+20.264 Attack phase=0.959 fist=(-1.007, 1.055, -7.750) hp=86
+DODGE INPUT phase=0.258 player=(0.00, 0.03, -8.00)
+DODGE OBSERVED progress=0.030 origin=(0.00, 0.03, -8.00) player=(-0.01, 0.03, -8.00)
+GUARD RESULT health=98.60 impact=0.015 position=(0.00, 0.03, -8.20)
+PLAYER SWEEP bounds=Center: (0.07, 1.59, -7.56), Extents: (0.86, 0.31, 0.48) hits=2

@@ -7,7 +7,7 @@ namespace M0.Editor
 {
     public static class M0PlayerUpgrade
     {
-        static Material sleeve, skin, leather, edge, steel, charcoal, trim;
+        static Material sleeve, skin, leather, edge, steel, charcoal, trim, eyeWhite;
         [MenuItem("M0/Upgrade Player Presentation")]
         public static void Upgrade()
         {
@@ -33,6 +33,7 @@ namespace M0.Editor
             steel = PixelMaterial("Pixel steel", new Color(0.54f, 0.68f, 0.72f));
             edge = PixelMaterial("Pixel edge", new Color(0.82f, 0.94f, 0.94f));
             trim = PixelMaterial("Pixel gold", new Color(0.82f, 0.53f, 0.14f));
+            eyeWhite = PixelMaterial("Pixel eye white", new Color(0.88f, 0.94f, 0.91f));
             p.gameObject.layer = 2;
             var rig = p.gameObject.AddComponent<M0PlayerRig>(); p.Rig = rig;
             rig.Root = Pivot("Articulated voxel hands", p.View.transform, Vector3.zero); p.WeaponRoot = rig.Root;
@@ -76,7 +77,11 @@ namespace M0.Editor
             rig.Head = Pivot("Head pivot", rig.Body, new Vector3(0, 1.53f, 0));
             Box("Head", rig.Head, Vector3.zero, new Vector3(0.34f, 0.36f, 0.32f), skin);
             Box("Hair", rig.Head, new Vector3(0, 0.13f, -0.02f), new Vector3(0.36f, 0.13f, 0.34f), charcoal);
-            foreach (float x in new[] { -0.085f, 0.085f }) Box("Pixel eye", rig.Head, new Vector3(x, 0.01f, 0.165f), new Vector3(0.04f, 0.04f, 0.012f), charcoal);
+            foreach (float x in new[] { -0.085f, 0.085f })
+            {
+                Box("Eye sclera", rig.Head, new Vector3(x, 0.01f, 0.163f), new Vector3(0.062f, 0.055f, 0.025f), eyeWhite);
+                Box("Eye pupil", rig.Head, new Vector3(x, 0.01f, 0.181f), new Vector3(0.026f, 0.038f, 0.012f), charcoal);
+            }
             rig.LeftLeg = Limb("Left thigh", rig.Body, new Vector3(-0.13f, 0.78f, 0), new Vector3(0.20f, 0.36f, 0.24f), charcoal);
             rig.RightLeg = Limb("Right thigh", rig.Body, new Vector3(0.13f, 0.78f, 0), new Vector3(0.20f, 0.36f, 0.24f), charcoal);
             rig.LeftKnee = Limb("Left knee", rig.LeftLeg, Vector3.down * 0.36f, new Vector3(0.20f, 0.38f, 0.24f), charcoal);
@@ -91,6 +96,11 @@ namespace M0.Editor
             rig.BodyGun.localPosition = new Vector3(0, -0.59f, 0.04f); rig.BodyGun.localRotation = Quaternion.Euler(-90, 0, 0);
             rig.Body.gameObject.SetActive(false);
             p.LightRecovery = 0.46f; p.HeavyRecovery = 0.78f;
+            p.BlockWindup = 0; p.PerfectWindow = 0.16f;
+            var sandbox = Object.FindAnyObjectByType<M0Sandbox>();
+            var slowMotion = sandbox == null ? null : sandbox.GetComponent<M0DodgeEffect>();
+            if (sandbox != null && slowMotion == null) slowMotion = Undo.AddComponent<M0DodgeEffect>(sandbox.gameObject);
+            if (slowMotion != null) { slowMotion.Duration = 1.18f; slowMotion.MinimumTimeScale = 0.22f; EditorUtility.SetDirty(slowMotion); }
             rig.RightHand.localRotation = Quaternion.Euler(-12, 0, -18);
             EditorUtility.SetDirty(p);
         }

@@ -25,8 +25,9 @@ namespace M0.Editor
         static string savedBindings;
         static string[] livePaths;
         static bool savedExists;
+        static bool savedAutoRespawn, savedPauseWhenUnfocused, savedRunInBackground;
         static int errors;
-        static readonly string Report = "Validation/M0-validation.txt";
+        static readonly string Report = "Validation/M0-validation-optimized.txt";
         static readonly string SaveKey = "M0.Bindings.v1";
         public static bool Running { get; private set; }
         [MenuItem("M0/Validate Running Sandbox")]
@@ -35,6 +36,9 @@ namespace M0.Editor
             if (!EditorApplication.isPlaying || M0Sandbox.Instance == null) throw new InvalidOperationException("Open M0Sandbox and enter Play Mode first.");
             if (Running) return;
             sandbox = M0Sandbox.Instance; lines.Clear(); errors = 0; step = 0; Running = true;
+            savedAutoRespawn = sandbox.AutoRespawn; savedPauseWhenUnfocused = sandbox.PauseWhenUnfocused;
+            savedRunInBackground = Application.runInBackground;
+            sandbox.PauseWhenUnfocused = false; Application.runInBackground = true;
             savedExists = PlayerPrefs.HasKey(SaveKey); savedBindings = PlayerPrefs.GetString(SaveKey, "");
             livePaths = new string[M0Input.Defaults.Length]; for (int i = 0; i < livePaths.Length; i++) livePaths[i] = sandbox.Input.Path(i);
             keyboard = InputSystem.AddDevice<Keyboard>("M0 validation keyboard"); keyboard.MakeCurrent();
@@ -61,10 +65,10 @@ namespace M0.Editor
                 {
                     case 0:
                         Check(CombatRules.Resolve(100, 14, false, true, false, -1, 0.1f, 0.13f, 0.9f).Damage == 0, "Dodge invulnerability");
-                        Check(CombatRules.Resolve(100, 14, false, false, true, 0.15f, 0.1f, 0.13f, 0.9f).Kind == HitKind.PerfectBlock, "Perfect-block window");
-                        Check(Mathf.Approximately(CombatRules.Resolve(100, 14, false, false, true, 0.4f, 0.1f, 0.13f, 0.9f).Damage, 1.4f), "Normal block reduces damage 90%");
+                        Check(CombatRules.Resolve(100, 14, false, false, true, 0.08f, 0, 0.16f, 0.9f).Kind == HitKind.PerfectBlock, "Perfect block is immediate and time-limited");
+                        Check(Mathf.Approximately(CombatRules.Resolve(100, 14, false, false, true, 0.4f, 0, 0.16f, 0.9f).Damage, 1.4f), "Held normal block reduces damage 90%");
                         Check(CombatRules.Resolve(80, 1, true, false, false, -1, 0.1f, 0.13f, 0.9f).Killed, "Weakpoint kills regardless of health");
-                        Check(CombatRules.Resolve(100, 14, false, false, false, 0.15f, 0.1f, 0.13f, 0.9f).Damage == 14, "Rear attack bypasses block");
+                        Check(CombatRules.Resolve(100, 14, false, false, false, 0.08f, 0, 0.16f, 0.9f).Damage == 14, "Rear attack bypasses block");
                         origin = sandbox.Player.transform.position; Keys(Key.W); Wait(0.4); break;
                     case 1:
                         Check(sandbox.Player.transform.position.z > origin.z + 0.7f, "Input W moves player");
@@ -110,13 +114,16 @@ namespace M0.Editor
                         Check(target.RagdollActive && target.CorpseSettled, "Ragdoll falls and freezes after ground contact");
                         bool solid = true; foreach (var body in target.GetComponentsInChildren<Rigidbody>()) solid &= body.isKinematic && body.GetComponent<Collider>().enabled;
                         Check(solid, "Settled corpse keeps solid colliders");
-                        sandbox.Player.ResetPlayer(new Vector3(0, 0.1f, -8)); target.ResetEnemy(new Vector3(0, 0.02f, -6)); target.enabled = false;
+                        sandbox.Player.ResetPlayer(new Vector3(0, 0.1f, -8)); target.ResetEnemy(new Vector3(0, 0.02f, -6.7f)); target.enabled = false;
                         Wait(0.1); break;
                     case 16:
-                        sandbox.Player.View.transform.LookAt(target.transform.position + Vector3.up * 0.94f); Physics.SyncTransforms(); sandbox.Player.Melee(true);
-                        Check(target.Health < target.MaxHealth, "Heavy melee hits nearby enemy");
+                        sandbox.Player.View.transform.LookAt(target.transform.position + Vector3.up * 0.94f); Physics.SyncTransforms();
+                        sandbox.Player.StartMelee(true); step = 160; until = EditorApplication.timeSinceStartup + 0.85; break;
+                    case 160:
+                        lines.Add("TRACE sword sweep health=" + target.Health.ToString("F1") + "/" + target.MaxHealth + " hits=" + sandbox.Player.LastMeleeHitCount + " bounds=" + sandbox.Player.LastMeleeSweepBounds);
+                        Check(target.Health < target.MaxHealth && sandbox.Player.LastMeleeHitCount == 1, "Animated sword volume sweeps through and hits nearby enemy once");
                         target.ResetEnemy(new Vector3(0, 0.02f, -6));
-                        Keys(); sandbox.Input.BeginRebind(8); Wait(0.1); break;
+                        Keys(); sandbox.Input.BeginRebind(8); step = 17; until = EditorApplication.timeSinceStartup + 0.1; break;
                     case 17: Keys(Key.B); Wait(0.15); break;
                     case 18: Keys(); Wait(0.1); break;
                     case 19: Keys(Key.B); Wait(0.14); break;
@@ -165,7 +172,14 @@ namespace M0.Editor
                         Check(Vector3.Distance(sandbox.Player.View.transform.position, sandbox.Player.EyePosition) < 1.5f, "Third-person camera retracts before a wall");
                         UnityEngine.Object.DestroyImmediate(ceiling); ceiling = null; Keys(Key.V); Wait(0.12); break;
                     case 32:
-                        Check(!sandbox.Player.ThirdPerson && !sandbox.Player.Rig.Body.gameObject.activeSelf, "View key returns to first person");
+                        bool firstPersonBody = sandbox.Player.Rig.Body.gameObject.activeSelf && sandbox.Player.Rig.Torso.GetComponentInChildren<Renderer>().enabled;
+                        bool firstPersonHeadHidden = true;
+                        foreach (var renderer in sandbox.Player.Rig.Head.GetComponentsInChildren<Renderer>(true)) firstPersonHeadHidden &= !renderer.enabled;
+                        bool leftHandCastsOnly = true;
+                        foreach (var renderer in sandbox.Player.Rig.LeftHand.GetComponentsInChildren<Renderer>(true))
+                            leftHandCastsOnly &= renderer.enabled && renderer.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                        Check(!sandbox.Player.ThirdPerson && firstPersonBody && firstPersonHeadHidden && leftHandCastsOnly,
+                            "First-person view keeps partial body, hides clipping head and renders left-hand shadows only");
                         Keys(Key.Digit2); Wait(0.12); break;
                     case 33:
                         Check(sandbox.Inventory.Selected == 1 && sandbox.Player.Ranged, "Hotbar key equips sidearm"); Keys();
@@ -197,6 +211,7 @@ namespace M0.Editor
         static void Finish()
         {
             EditorApplication.update -= Update; Application.logMessageReceived -= OnLog; Running = false;
+            Application.runInBackground = savedRunInBackground;
             if (keyboard != null) InputSystem.RemoveDevice(keyboard);
             if (mouse != null) InputSystem.RemoveDevice(mouse);
             if (ceiling != null) UnityEngine.Object.DestroyImmediate(ceiling);
@@ -209,7 +224,8 @@ namespace M0.Editor
                 var actions = (InputAction[])field.GetValue(sandbox.Input);
                 for (int i = 0; i < actions.Length; i++) actions[i].ApplyBindingOverride(livePaths[i]);
                 foreach (var enemy in sandbox.Enemies) enemy.enabled = true;
-                sandbox.AutoRespawn = true; sandbox.Restart(); sandbox.OpenMenu(false);
+                sandbox.AutoRespawn = savedAutoRespawn; sandbox.PauseWhenUnfocused = savedPauseWhenUnfocused;
+                sandbox.Restart(); sandbox.OpenMenu(false);
             }
             PlayerPrefs.Save(); Directory.CreateDirectory("Validation");
             lines.Add("RESULT: " + (errors == 0 ? "PASS" : "FAIL") + "; failures/errors=" + errors);

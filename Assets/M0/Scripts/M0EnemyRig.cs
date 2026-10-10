@@ -26,29 +26,36 @@ namespace M0
             if (state == EnemyState.Windup)
             {
                 float t = Mathf.SmoothStep(0, 1, phase);
-                right = Vector3.Lerp(new Vector3(0, 0, -8), new Vector3(-115, -42, -50), t);
-                left = Vector3.Lerp(new Vector3(0, 0, 8), new Vector3(-65, 15, 22), t);
-                torso = new Vector3(-8 * t, -28 * t, -8 * t); elbow = Mathf.Lerp(-18, -78, t); brace = t;
+                float settle = Mathf.Sin(t * Mathf.PI);
+                right = Vector3.Lerp(new Vector3(-8, 0, -8), new Vector3(-118, -58, -64), t);
+                left = Vector3.Lerp(new Vector3(0, 0, 8), new Vector3(-72, 24, 30), t);
+                torso = new Vector3(-12 * t - settle * 4, -36 * t, -12 * t);
+                elbow = Mathf.Lerp(-18, -92, t); brace = t;
             }
-            else if (state == EnemyState.Attack || state == EnemyState.Recovery)
+            else if (state == EnemyState.Attack)
             {
-                float t = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.12f, 0.72f, phase));
-                right = Vector3.Lerp(new Vector3(-115, -42, -50), new Vector3(-80, -20, -10), t);
-                left = new Vector3(-65 + t * 25, 15, 22);
-                torso = Vector3.Lerp(new Vector3(-8, -28, -8), new Vector3(16, 26, 9), t);
-                elbow = Mathf.Lerp(-78, -10, t); brace = 1;
-                if (state == EnemyState.Recovery)
-                {
-                    float recover = Mathf.SmoothStep(0, 1, phase);
-                    right = Vector3.Lerp(new Vector3(-80, -20, -10), new Vector3(0, 0, -8), recover);
-                    left = Vector3.Lerp(new Vector3(-40, 15, 22), new Vector3(0, 0, 8), recover);
-                    torso = Vector3.Lerp(new Vector3(16, 26, 9), Vector3.zero, recover);
-                    elbow = Mathf.Lerp(-10, -18, recover); brace = 1 - recover;
-                }
+                float strike = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.03f, 0.48f, phase));
+                float follow = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.58f, 1f, phase));
+                Vector3 extended = new Vector3(-88, -8, -8), followThrough = new Vector3(-62, 26, 12);
+                right = Vector3.Lerp(new Vector3(-118, -58, -64), extended, strike);
+                right = Vector3.Lerp(right, followThrough, follow);
+                left = Vector3.Lerp(new Vector3(-72, 24, 30), new Vector3(-38, -12, 18), strike);
+                torso = Vector3.Lerp(new Vector3(-12, -36, -12), new Vector3(20, 34, 12), strike);
+                torso = Vector3.Lerp(torso, new Vector3(12, 42, 16), follow);
+                elbow = Mathf.Lerp(-92, -4, strike); brace = 1 - follow * 0.45f;
+            }
+            else if (state == EnemyState.Recovery)
+            {
+                float recover = Mathf.SmoothStep(0, 1, phase);
+                right = Vector3.Lerp(new Vector3(46, 38, 18), new Vector3(0, 0, -8), recover);
+                left = Vector3.Lerp(new Vector3(-38, -12, 18), new Vector3(0, 0, 8), recover);
+                torso = Vector3.Lerp(new Vector3(12, 42, 16), Vector3.zero, recover);
+                elbow = Mathf.Lerp(-4, -18, recover); brace = 1 - recover;
             }
             else if (state == EnemyState.Stagger)
             { right = new Vector3(20, 0, -32); left = new Vector3(20, 0, 32); torso = new Vector3(-18, 0, 0); }
-            float blend = 1 - Mathf.Exp(-Time.deltaTime * 25);
+            float blendSpeed = state == EnemyState.Attack ? 38 : state == EnemyState.Windup ? 18 : 12;
+            float blend = 1 - Mathf.Exp(-Time.deltaTime * blendSpeed);
             RightShoulder.localRotation = Quaternion.Slerp(RightShoulder.localRotation, Quaternion.Euler(right), blend);
             LeftShoulder.localRotation = Quaternion.Slerp(LeftShoulder.localRotation, Quaternion.Euler(left), blend);
             RightElbow.localRotation = Quaternion.Slerp(RightElbow.localRotation, Quaternion.Euler(elbow, 0, 0), blend);

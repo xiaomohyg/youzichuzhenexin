@@ -18,6 +18,7 @@ namespace M0
         [Range(1, 10)] public int DesiredEnemies = 5;
         [Range(1, 20)] public int MaximumCorpses = 20;
         public bool AutoRespawn = true;
+        public bool PauseWhenUnfocused = true;
         public M0Input Input { get; private set; }
         public bool MenuOpen { get; private set; }
         public bool InventoryOpen { get; private set; }
@@ -37,8 +38,7 @@ namespace M0
         Vector2 inventoryScroll;
         void Awake()
         {
-            Instance = this; Input = new M0Input(); Inventory = new M0Inventory();
-            Inventory.Changed += Player.EquipmentChanged;
+            EnsureRuntimeState();
             Player.Sensitivity = PlayerPrefs.GetFloat("M0.Sensitivity", Player.Sensitivity);
             Player.FieldOfView = PlayerPrefs.GetFloat("M0.Fov", Player.FieldOfView);
             Player.CameraShake = PlayerPrefs.GetFloat("M0.Shake", Player.CameraShake);
@@ -48,9 +48,21 @@ namespace M0
             Time.timeScale = 1; Input.Blocked = false; LockCursor(true);
             DodgeEffect = GetComponent<M0DodgeEffect>(); if (DodgeEffect == null) DodgeEffect = gameObject.AddComponent<M0DodgeEffect>();
         }
+        void EnsureRuntimeState()
+        {
+            Instance = this;
+            if (Input == null) Input = new M0Input();
+            if (Inventory == null)
+            {
+                Inventory = new M0Inventory();
+                if (Player != null) Inventory.Changed += Player.EquipmentChanged;
+            }
+            if (DodgeEffect == null) DodgeEffect = GetComponent<M0DodgeEffect>();
+        }
         void Start() { Restart(); }
         void Update()
         {
+            EnsureRuntimeState();
             if (resumeNextFrame) { resumeNextFrame = false; Input.Blocked = false; }
             // Read the configured path while gameplay actions are blocked by the inventory.
             var inventoryKey = InputSystem.FindControl(Input.Path(14)) as UnityEngine.InputSystem.Controls.ButtonControl;
@@ -61,7 +73,7 @@ namespace M0
                 if (InventoryOpen) CloseInventory();
                 else if (MenuOpen && Player.Health > 0) CloseMenu(); else OpenMenu(false);
             }
-            if (!MenuOpen && !Application.isFocused) OpenMenu(false);
+            if (PauseWhenUnfocused && !MenuOpen && !Application.isFocused) OpenMenu(false);
             if (Input.Pressed(11)) Restart();
             if (!MenuOpen && !InventoryOpen && AutoRespawn && Time.time >= nextSpawn && AliveCount < DesiredEnemies)
             { SpawnOne(); nextSpawn = Time.time + 3.2f; }
@@ -168,7 +180,7 @@ namespace M0
                 Text(24, height - 140, width - 48, "[" + Input.Label(0) + "/" + Input.Label(1) + "/" + Input.Label(2) + "/" + Input.Label(3) + "] 移动    [" + Input.Label(4) + "] 奔跑    [" + Input.Label(5) + "] 跳跃    [" + Input.Label(6) + "] 闪避    [" + Input.Label(12) + "] 下蹲    [" + Input.Label(13) + "] 视角", small);
                 Text(24, height - 113, width - 48, "[" + Input.Label(7) + "] 攻击    [" + Input.Label(8) + "] 格挡    [" + Input.Label(9) + "] 重击    [" + Input.Label(10) + "] 换武器    [" + Input.Label(14) + "] 物品栏    滚轮 / 数字键：选物品    [" + Input.Label(11) + "] 重置", small);
                 DrawHotbar(width, height);
-                Text(24, height - 70, 380, (Player.ThirdPerson ? "第三人称" : "第一人称") + (Player.Crouching ? " · 下蹲" : "") + (Player.CounterReady ? " · 反击 +25%" : "") + (Player.Blocking ? " · 格挡" : ""), small);
+                Text(24, height - 70, 430, (Player.ThirdPerson ? "第三人称" : "第一人称") + (Player.Crouching ? " · 下蹲" : "") + (Player.CounterReady ? " · 反击就绪" : "") + (Player.Blocking ? " · 格挡" : ""), small);
                 Text(width - 220, height - 70, 200, "闪避 " + (Player.DodgeReady >= 1 ? "就绪" : "冷却"), small);
                 RectColor(new Rect(width - 220, height - 38, 190 * Player.DodgeReady, 4), new Color(0.3f, 0.8f, 1));
                 Fx.DrawNumbers(Player.View, centered, scale);

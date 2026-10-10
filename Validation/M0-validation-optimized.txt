@@ -1,0 +1,45 @@
+PASS Dodge invulnerability
+PASS Perfect block is immediate and time-limited
+PASS Held normal block reduces damage 90%
+PASS Weakpoint kills regardless of health
+PASS Rear attack bypasses block
+PASS Input W moves player
+PASS Dodge enters live invulnerability window
+PASS Dodge distance is 3.4m without extra movement
+PASS Dodge camera does not roll
+PASS Menu blocks player movement
+PASS Interactive rebinding accepts new key
+PASS New input instance reloads saved binding
+PASS Old W key no longer moves after rebind
+PASS Rebound F12 moves actual player
+PASS Duplicate binding swaps instead of losing action
+PASS Body raycast shot damages without instant death
+PASS Head collider raycast kills enemy
+PASS Hit events drive HUD and network template
+PASS Ragdoll falls and freezes after ground contact
+PASS Settled corpse keeps solid colliders
+TRACE sword sweep health=0.0/80 hits=1 bounds=Center: (0.04, 1.59, -7.27), Extents: (0.25, 0.48, 0.82)
+PASS Animated sword volume sweeps through and hits nearby enemy once
+PASS Live perfect block staggers attacker
+PASS Unblocked enemy attack reduces player health
+PASS Local transport publishes commands and actor snapshots
+PASS Dodge cancels pending heavy attack before damage
+PASS Block cancels pending heavy attack before damage
+PASS Corpse pool retains at most 20, recycles oldest
+PASS Restart restores pool and player
+PASS Crouch input lowers collider and eye
+PASS Low ceiling prevents standing through geometry
+PASS View key reveals body and moves camera behind player
+PASS Crouch release restores standing height with clearance
+PASS Third-person camera retracts before a wall
+PASS First-person view keeps partial body, hides clipping head and renders left-hand shadows only
+PASS Hotbar key equips sidearm
+PASS Actual mouse wheel selects empty slot and holsters weapon
+PASS Reverse wheel equips previous item
+PASS Inventory blocks combat movement and wheel equipment changes
+PASS Moving equipped item into backpack holsters it
+PASS Wheel wraps last slot to first
+PASS Wheel wraps first slot to last
+PASS Dodge burst and braking have distinct speed phases
+PASS Existing twelve-action bindings migrate without loss
+RESULT: PASS; failures/errors=0

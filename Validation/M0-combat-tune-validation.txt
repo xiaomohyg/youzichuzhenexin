@@ -1,0 +1,38 @@
+PASS Perfect block opens immediately on guard input
+PASS Holding guard transitions to normal 90 percent mitigation
+PASS Windup cannot damage player
+PASS Actual animated gauntlet contacts player and causes exactly one 14-damage hit
+PASS Damage box matches visible gauntlet size
+PASS Recovery and persistent model overlap do not repeat damage
+PASS Side-step out of actual swing misses despite nearby player
+PASS Cover placed during windup blocks attack contact through wall
+PASS Stagger interrupts pending attack and cancels damage
+PASS Empty dodge has no slow motion or counter reward
+PASS Actual avoided swing triggers grayscale slow motion and counter without damage
+PASS URP camera post processing enabled for real grayscale
+PASS Successful-dodge time dilation lasts longer than one second
+PASS Sidearm counter accepts immediate activation during the successful dodge
+PASS Sidearm counter input is buffered or starts its dedicated sliding shot immediately
+PASS Buffered sidearm dodge counter fires and completes in under 0.75 real seconds despite time dilation
+PASS Sidearm counter timing does not consume or cancel the remaining dodge slow motion
+PASS Pause freezes effect clock beyond its normal duration
+PASS Resume restores remaining slow-motion speed
+PASS Inventory also freezes slow-motion clock without unpausing
+PASS Effect expires smoothly and restores clock and physics step
+PASS Animated fist collides with sword volume, blocks for 90% mitigation and triggers impact
+PASS Guard impact physically pushes player backward
+PASS Guard recoil respects rear-wall collision
+PASS Live perfect block negates contact damage
+PASS Perfect block has stronger impact and no player knockback
+PASS Perfect block emits a dense contact spark burst with a white-hot core
+PASS Perfect-block follow-up can start melee counter without input timing dependency
+PASS Perfect-block follow-up starts a distinct melee counter
+PASS Melee counter auto-locks and damages the visible target
+PASS Perfect block grants a counter before ranged weapon swap
+PASS Sidearm parry counter starts through the dedicated ranged action
+PASS Sidearm counter uses its own lock-on firing action
+PASS Ranged counter auto-locks and damages the visible target
+PASS Restart clears active grayscale and slow motion
+PASS One animated sword arc can damage every enemy model swept by the blade
+PASS Sword sweep does not damage an enemy outside the model trajectory
+RESULT: PASS; failures=0

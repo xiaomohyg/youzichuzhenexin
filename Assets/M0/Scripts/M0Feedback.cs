@@ -34,8 +34,43 @@ namespace M0
         public void Clear() { numbers.Clear(); HitMarker = HurtOverlay = 0; Particles.Clear(); }
         public void Sparks(Vector3 position, Color color, int count)
         {
-            var emit = new ParticleSystem.EmitParams { position = position, startColor = color };
-            Particles.Emit(emit, count);
+            Sparks(position, color, count, Vector3.up, 1f);
+        }
+        public void Sparks(Vector3 position, Color color, int count, Vector3 normal, float intensity)
+        {
+            if (Particles == null || count <= 0) return;
+            if (!Particles.isPlaying) Particles.Play();
+            normal = normal.sqrMagnitude > 0.001f ? normal.normalized : Vector3.up;
+            intensity = Mathf.Max(0.25f, intensity);
+            for (int i = 0; i < count; i++)
+            {
+                // A biased fan keeps the burst outside the struck mesh instead of hiding inside it.
+                Vector3 scatter = Random.onUnitSphere;
+                Vector3 direction = (normal * Random.Range(0.72f, 1.25f) + scatter * 0.72f).normalized;
+                var emit = new ParticleSystem.EmitParams
+                {
+                    position = position + normal * Random.Range(0.025f, 0.075f),
+                    velocity = direction * Random.Range(3.4f, 7.2f) * Mathf.Lerp(0.9f, 1.18f, intensity - 1f),
+                    startColor = Color.Lerp(color, Color.white, Random.Range(0f, 0.38f)),
+                    startLifetime = Random.Range(0.26f, 0.46f) * Mathf.Lerp(0.9f, 1.2f, intensity - 1f),
+                    startSize = Random.Range(0.085f, 0.145f) * intensity
+                };
+                Particles.Emit(emit, 1);
+            }
+            // Perfect impacts get a few white-hot, slower cores that remain readable through shake.
+            if (intensity < 1.25f) return;
+            for (int i = 0; i < 6; i++)
+            {
+                var core = new ParticleSystem.EmitParams
+                {
+                    position = position + normal * 0.055f,
+                    velocity = (normal + Random.onUnitSphere * 0.3f).normalized * Random.Range(1.4f, 3f),
+                    startColor = Color.white,
+                    startLifetime = Random.Range(0.16f, 0.28f),
+                    startSize = Random.Range(0.16f, 0.23f) * intensity
+                };
+                Particles.Emit(core, 1);
+            }
         }
         public void Tracer(Vector3 from, Vector3 to)
         {
