@@ -9,6 +9,8 @@ namespace M0
     public sealed class M0Sandbox : MonoBehaviour
     {
         public static M0Sandbox Instance { get; private set; }
+        static int playSession;
+        int initializedSession = -1;
         public M0Player Player;
         public M0Feedback Fx;
         public M0NetworkSession Network;
@@ -57,12 +59,28 @@ namespace M0
                 Inventory = new M0Inventory();
                 if (Player != null) Inventory.Changed += Player.EquipmentChanged;
             }
-            if (DodgeEffect == null) DodgeEffect = GetComponent<M0DodgeEffect>();
+            if (Player != null) Player.EnsureRigPresentation();
+            if (DodgeEffect == null)
+            {
+                DodgeEffect = GetComponent<M0DodgeEffect>();
+                if (DodgeEffect == null) DodgeEffect = gameObject.AddComponent<M0DodgeEffect>();
+            }
         }
-        void Start() { Restart(); }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStaticsForPlaySession()
+        {
+            Instance = null;
+            playSession++;
+        }
+        void Start()
+        {
+            EnsureRuntimeState();
+            EnsurePlaySession();
+        }
         void Update()
         {
             EnsureRuntimeState();
+            EnsurePlaySession();
             if (resumeNextFrame) { resumeNextFrame = false; Input.Blocked = false; }
             // Read the configured path while gameplay actions are blocked by the inventory.
             var inventoryKey = InputSystem.FindControl(Input.Path(14)) as UnityEngine.InputSystem.Controls.ButtonControl;
@@ -77,6 +95,15 @@ namespace M0
             if (Input.Pressed(11)) Restart();
             if (!MenuOpen && !InventoryOpen && AutoRespawn && Time.time >= nextSpawn && AliveCount < DesiredEnemies)
             { SpawnOne(); nextSpawn = Time.time + 3.2f; }
+        }
+        void EnsurePlaySession()
+        {
+            if (initializedSession == playSession) return;
+            MenuOpen = InventoryOpen = false; resumeNextFrame = false; pickedSlot = -1;
+            Input.Cancel(); Input.Blocked = false; Time.timeScale = 1; LockCursor(true);
+            DodgeEffect?.Clear();
+            Restart();
+            initializedSession = playSession;
         }
         static void LockCursor(bool locked) { Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !locked; }
         public void OpenMenu(bool dead)
@@ -104,8 +131,9 @@ namespace M0
         public void Restart()
         {
             DodgeEffect.Clear();
+            Player.ResetPlayer(new Vector3(0, 0.1f, -8));
             corpses.Clear(); foreach (var enemy in Enemies) enemy.gameObject.SetActive(false);
-            Kills = 0; Inventory.Reset(); Player.ResetPlayer(new Vector3(0, 0.1f, -8)); Fx.Clear();
+            Kills = 0; Inventory.Reset(); Fx.Clear();
             for (int i = 0; i < DesiredEnemies; i++) SpawnOne();
             nextSpawn = Time.time + 4; messageUntil = Time.time + 5;
             message = "橙色头部是弱点 · 红光是攻击前摇 · 重击可击退";
@@ -114,9 +142,42 @@ namespace M0
         {
             M0Enemy slot = Enemies.Find(e => !e.gameObject.activeSelf);
             if (slot == null && corpses.Count > 0) { slot = corpses.Dequeue(); slot.gameObject.SetActive(false); }
-            if (slot == null || SpawnPoints.Length == 0) return;
-            var spawn = SpawnPoints[Random.Range(0, SpawnPoints.Length)].position;
-            if (Vector3.Distance(spawn, Player.transform.position) < 4) spawn = SpawnPoints[0].position;
+            if (slot == null || SpawnPoints == null || SpawnPoints.Length == 0) return;
+            const float minimumSpacing = 2.25f;
+            var freeSpawns = new List<Vector3>();
+            Vector3 fallbackSpawn = SpawnPoints[0] != null ? SpawnPoints[0].position : Player.transform.position + Player.transform.forward * 6;
+            float bestClearance = -1;
+            foreach (var point in SpawnPoints)
+            {
+                if (point == null) continue;
+                Vector3 candidate = point.position;
+                float playerDistance = Vector3.Distance(candidate, Player.transform.position);
+                float clearance = float.PositiveInfinity;
+                foreach (var other in Enemies)
+                {
+                    if (other == slot || !other.gameObject.activeSelf) continue;
+                    Vector3 separation = candidate - other.transform.position; separation.y = 0;
+                    clearance = Mathf.Min(clearance, separation.magnitude);
+                }
+                if (clearance > bestClearance)
+                {
+                    bestClearance = clearance;
+                    fallbackSpawn = candidate;
+                }
+                if (playerDistance >= 4 && clearance >= minimumSpacing) freeSpawns.Add(candidate);
+            }
+            Vector3 spawn = freeSpawns.Count > 0 ? freeSpawns[Random.Range(0, freeSpawns.Count)] : fallbackSpawn;
+            if (Vector3.Distance(spawn, Player.transform.position) < 4)
+            {
+                Vector3 away = spawn - Player.transform.position; away.y = 0;
+                if (away.sqrMagnitude < 0.01f) away = -Player.transform.forward;
+                spawn = Player.transform.position + away.normalized * 4.25f;
+            }
+            if (bestClearance < minimumSpacing)
+            {
+                Vector2 offset = Random.insideUnitCircle.normalized * minimumSpacing;
+                spawn += new Vector3(offset.x, 0, offset.y);
+            }
             slot.ResetEnemy(spawn);
         }
         public void EnemyKilled(M0Enemy enemy)

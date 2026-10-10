@@ -152,6 +152,18 @@ namespace M0.Editor
                         { var e = sandbox.Enemies[i]; e.ResetEnemy(new Vector3(i % 7 - 3, 0.1f, 8 + i / 7 * 2)); e.ApplyHit(100, false, Vector3.forward, 1); }
                         Check(sandbox.CorpseCount == 20 && !sandbox.Enemies[0].gameObject.activeSelf, "Corpse pool retains at most 20, recycles oldest");
                         sandbox.Restart(); Check(sandbox.AliveCount == sandbox.DesiredEnemies && sandbox.Player.Health == 100, "Restart restores pool and player");
+                        Check(sandbox.Player.Rig.Body.gameObject.activeSelf && sandbox.Player.Rig.Eyes.parent == sandbox.Player.Rig.Body,
+                            "Restart keeps the player body visible and eye anchor independent of head pitch");
+                        float nearestEnemy = float.MaxValue;
+                        for (int i = 0; i < sandbox.Enemies.Count; i++)
+                            if (sandbox.Enemies[i].gameObject.activeSelf)
+                                for (int j = i + 1; j < sandbox.Enemies.Count; j++)
+                                    if (sandbox.Enemies[j].gameObject.activeSelf)
+                                    {
+                                        Vector3 delta = sandbox.Enemies[i].transform.position - sandbox.Enemies[j].transform.position;
+                                        delta.y = 0; nearestEnemy = Mathf.Min(nearestEnemy, delta.magnitude);
+                                    }
+                        Check(nearestEnemy >= 2.25f, "Restart assigns active enemies to separated spawn positions");
                         foreach (var e in sandbox.Enemies) e.gameObject.SetActive(false);
                         sandbox.Input.Reset(); sandbox.CloseMenu(); Keys(Key.LeftCtrl); Wait(0.3); break;
                     case 28:
@@ -172,14 +184,21 @@ namespace M0.Editor
                         Check(Vector3.Distance(sandbox.Player.View.transform.position, sandbox.Player.EyePosition) < 1.5f, "Third-person camera retracts before a wall");
                         UnityEngine.Object.DestroyImmediate(ceiling); ceiling = null; Keys(Key.V); Wait(0.12); break;
                     case 32:
-                        bool firstPersonBody = sandbox.Player.Rig.Body.gameObject.activeSelf && sandbox.Player.Rig.Torso.GetComponentInChildren<Renderer>().enabled;
-                        bool firstPersonHeadHidden = true;
-                        foreach (var renderer in sandbox.Player.Rig.Head.GetComponentsInChildren<Renderer>(true)) firstPersonHeadHidden &= !renderer.enabled;
-                        bool leftHandCastsOnly = true;
-                        foreach (var renderer in sandbox.Player.Rig.LeftHand.GetComponentsInChildren<Renderer>(true))
-                            leftHandCastsOnly &= renderer.enabled && renderer.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-                        Check(!sandbox.Player.ThirdPerson && firstPersonBody && firstPersonHeadHidden && leftHandCastsOnly,
-                            "First-person view keeps partial body, hides clipping head and renders left-hand shadows only");
+                        bool firstPersonBody = sandbox.Player.Rig.Body.gameObject.activeSelf;
+                        var torsoRenderer = sandbox.Player.Rig.Torso.GetComponent<Renderer>();
+                        var leftArmRenderer = sandbox.Player.Rig.BodyLeftArm.GetComponentInChildren<Renderer>(true);
+                        var leftLegRenderer = sandbox.Player.Rig.LeftLeg.GetComponentInChildren<Renderer>(true);
+                        bool headVisible = true;
+                        foreach (var renderer in sandbox.Player.Rig.Head.GetComponentsInChildren<Renderer>(true))
+                            headVisible &= renderer.enabled && renderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                        Check(!sandbox.Player.ThirdPerson && firstPersonBody && torsoRenderer.enabled &&
+                            torsoRenderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly &&
+                            leftArmRenderer.enabled && leftLegRenderer.enabled && headVisible &&
+                            sandbox.Player.Rig.Eyes.parent == sandbox.Player.Rig.Body &&
+                            !sandbox.Player.Rig.LeftHand.gameObject.activeSelf &&
+                            !sandbox.Player.Rig.LeftUpper.gameObject.activeSelf &&
+                            !sandbox.Player.Rig.LeftForearm.gameObject.activeSelf,
+                            "First-person view keeps the head and body visible with an eye anchor independent of head pitch and no screen-space left hand");
                         Keys(Key.Digit2); Wait(0.12); break;
                     case 33:
                         Check(sandbox.Inventory.Selected == 1 && sandbox.Player.Ranged, "Hotbar key equips sidearm"); Keys();

@@ -8,15 +8,15 @@ namespace M0
     public sealed class M0Enemy : MonoBehaviour, ICombatTarget
     {
         public int Id;
-        public float MaxHealth = 80, Speed = 1.8f, SenseRange = 16, AttackRange = 1.9f, Damage = 14, TelegraphTime = 0.62f;
+        public float MaxHealth = 80, Speed = 1.8f, SenseRange = 16, AttackRange = 2.0f, Damage = 14, TelegraphTime = 0.62f;
         public Transform Head, LeftArm, RightArm;
         public Renderer BodyRenderer;
         public float HitStopDuration = 0.083f;
         public M0EnemyRig Rig;
-        public float AttackDuration = 0.46f, RecoveryDuration = 0.85f;
+        public float AttackDuration = 0.62f, DashDuration = 0.19f, DashSpeed = 4.8f, RecoveryDuration = 0.85f;
         public bool DodgeContactVerified { get; private set; }
         public Vector3 StrikePoint => Rig != null && Rig.StrikeShape != null ? Rig.StrikeShape.transform.position : transform.position + Vector3.up;
-        public bool StrikeActive => State == EnemyState.Attack && AttackPhase >= 0.2f && AttackPhase <= 0.8f;
+        public bool StrikeActive => State == EnemyState.Attack && AttackPhase >= DashDuration / AttackDuration + 0.04f && AttackPhase <= 0.92f;
         public float AttackPhase => Mathf.Clamp01(1 - timer / Mathf.Max(0.01f, AttackDuration));
         public float Health { get; private set; }
         public bool Alive => gameObject.activeSelf && State != EnemyState.Dead;
@@ -76,7 +76,7 @@ namespace M0
         }
         void Update()
         {
-            if (State == EnemyState.Dead) { UpdateCorpse(); return; }
+            if (State == EnemyState.Dead) { Rig?.SetTelegraph(-1); UpdateCorpse(); return; }
             var player = M0Sandbox.Instance?.Player;
             if (player == null || player.Health <= 0) return;
             if (frozen > 0) { frozen -= Time.deltaTime; return; }
@@ -99,11 +99,11 @@ namespace M0
                     TurnTowards(delta, tracking);
                     attackDirection = transform.forward;
                 }
-                SetTint(Color.Lerp(new Color(0.55f, 0.18f, 0.08f), new Color(1, 0.12f, 0.04f), (Mathf.Sin(Time.time * 25) + 1) * 0.5f));
-                Rig?.Present(State, phase, 0); MoveSteered(Vector3.zero, 8);
+                Rig?.SetTelegraph(phase); Rig?.Present(State, phase, 0); MoveSteered(Vector3.zero, 8);
                 if (timer <= 0)
                 {
                     State = EnemyState.Attack; timer = AttackDuration; strikeResolved = false; previousPhase = 0;
+                    Rig.DashPhase = DashDuration / AttackDuration;
                     attackDirection = transform.forward; planarVelocity = Vector3.zero;
                     previousStrike = Rig.StrikeShape.transform.position; previousStrikeRotation = Rig.StrikeShape.transform.rotation;
                     previousPlayer = player.transform.position;
@@ -112,9 +112,12 @@ namespace M0
             }
             if (State == EnemyState.Attack)
             {
-                // The planted strike keeps the late-windup direction, but eases into and out of its lunge.
-                float lunge = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.06f, 0.78f, AttackPhase)) * Mathf.PI);
-                MoveSteered(attackDirection * (2.25f * lunge), 24);
+                float elapsed = AttackDuration - timer;
+                if (elapsed < DashDuration)
+                {
+                    Move(attackDirection * DashSpeed);
+                }
+                else MoveSteered(Vector3.zero, 32);
                 Rig.Present(State, AttackPhase, 0);
                 SweepStrike(player);
                 if (State == EnemyState.Attack && timer <= 0)
@@ -145,6 +148,12 @@ namespace M0
             float facingAngle = delta.sqrMagnitude > 0.01f ? Vector3.Angle(transform.forward, delta) : 0;
             if (distance <= AttackRange && facingAngle < 24 && attackCooldown <= 0)
             {
+                float power = Random.Range(0f, 1f);
+                TelegraphTime = Mathf.Lerp(0.66f, 1.12f, power);
+                DashDuration = Random.Range(0.20f, 0.30f);
+                AttackDuration = DashDuration + Random.Range(0.34f, 0.48f);
+                DashSpeed = Mathf.Lerp(8.2f, 5.8f, power);
+                Damage = Mathf.Lerp(10f, 22f, power);
                 State = EnemyState.Windup; timer = TelegraphTime; attackDirection = transform.forward;
                 planarVelocity *= 0.35f; M0Sandbox.Instance.Fx.PlayTone(210, 0.12f, 0.09f);
             }
@@ -155,7 +164,11 @@ namespace M0
                 {
                     if (other == this || !other.Alive) continue;
                     var away = transform.position - other.transform.position; away.y = 0;
-                    if (away.sqrMagnitude < 1.4f && away.sqrMagnitude > 0.01f) separation += away.normalized * 0.7f;
+                    if (away.sqrMagnitude < 1.4f)
+                    {
+                        if (away.sqrMagnitude < 0.01f) away = transform.right * (Id < other.Id ? -1 : 1);
+                        separation += away.normalized * 0.7f;
+                    }
                 }
                 float approach = Mathf.InverseLerp(AttackRange * 0.82f, AttackRange * 2.25f, distance);
                 Vector3 orbit = Vector3.Cross(Vector3.up, delta.normalized) * strafeSign * (distance < AttackRange * 1.35f ? 0.38f : 0.08f);
@@ -176,7 +189,8 @@ namespace M0
             for (int i = 0; i <= samples && !strikeResolved; i++)
             {
                 float t = (float)i / samples, samplePhase = Mathf.Lerp(previousPhase, phase, t);
-                if (samplePhase < 0.2f || samplePhase > 0.8f) continue;
+                float strikeStart = DashDuration / AttackDuration + 0.04f;
+                if (samplePhase < strikeStart || samplePhase > 0.92f) continue;
                 Vector3 at = Vector3.Lerp(previousStrike, current, t);
                 Quaternion facing = Quaternion.Slerp(previousStrikeRotation, rotation, t);
                 Vector3 playerAt = Vector3.Lerp(previousPlayer, player.transform.position, t);

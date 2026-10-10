@@ -41,7 +41,7 @@ namespace M0.Editor
             rig.LeftHand = Pivot("Left wrist / guard support", rig.Root, new Vector3(-0.36f, -0.42f, 0.55f));
             Hand(rig.RightHand); Hand(rig.LeftHand);
             rig.RightUpper = Box("Right upper sleeve", rig.Root, Vector3.zero, Vector3.one, sleeve);
-            rig.RightForearm = Box("Right forearm", rig.Root, Vector3.zero, Vector3.one, skin);
+            rig.RightForearm = Box("Right forearm", rig.Root, Vector3.zero, Vector3.one, sleeve);
             rig.LeftUpper = Box("Left upper sleeve", rig.Root, Vector3.zero, Vector3.one, sleeve);
             rig.LeftForearm = Box("Left forearm", rig.Root, Vector3.zero, Vector3.one, skin);
             ArmRest(rig.RightUpper, rig.RightForearm, 1); ArmRest(rig.LeftUpper, rig.LeftForearm, -1);
@@ -82,6 +82,7 @@ namespace M0.Editor
                 Box("Eye sclera", rig.Head, new Vector3(x, 0.01f, 0.163f), new Vector3(0.062f, 0.055f, 0.025f), eyeWhite);
                 Box("Eye pupil", rig.Head, new Vector3(x, 0.01f, 0.181f), new Vector3(0.026f, 0.038f, 0.012f), charcoal);
             }
+            rig.Eyes = Pivot("Eye position", rig.Body, new Vector3(0, 1.54f, 0.17f));
             rig.LeftLeg = Limb("Left thigh", rig.Body, new Vector3(-0.13f, 0.78f, 0), new Vector3(0.20f, 0.36f, 0.24f), charcoal);
             rig.RightLeg = Limb("Right thigh", rig.Body, new Vector3(0.13f, 0.78f, 0), new Vector3(0.20f, 0.36f, 0.24f), charcoal);
             rig.LeftKnee = Limb("Left knee", rig.LeftLeg, Vector3.down * 0.36f, new Vector3(0.20f, 0.38f, 0.24f), charcoal);
@@ -94,8 +95,8 @@ namespace M0.Editor
             rig.BodySword.localPosition = new Vector3(0, -0.59f, 0.04f); rig.BodySword.localRotation = Quaternion.Euler(90, 0, 0);
             rig.BodyGun = Object.Instantiate(p.Gun, rig.BodyRightArm); rig.BodyGun.name = "Equipped sidearm";
             rig.BodyGun.localPosition = new Vector3(0, -0.59f, 0.04f); rig.BodyGun.localRotation = Quaternion.Euler(-90, 0, 0);
-            rig.Body.gameObject.SetActive(false);
-            p.LightRecovery = 0.46f; p.HeavyRecovery = 0.78f;
+            rig.Body.gameObject.SetActive(true);
+            p.LightRecovery = 0.46f; p.HeavyRecovery = 0.78f; p.Invulnerability = 0.28f;
             p.BlockWindup = 0; p.PerfectWindow = 0.16f;
             var sandbox = Object.FindAnyObjectByType<M0Sandbox>();
             var slowMotion = sandbox == null ? null : sandbox.GetComponent<M0DodgeEffect>();
@@ -122,7 +123,7 @@ namespace M0.Editor
         {
             var root = Pivot(name, parent, Vector3.zero);
             // Every row is a pixel in a custom stepped silhouette, extruded to a solid blade.
-            string[] rows = { "...e...", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", "..ese..", ".ggggg.", "gg.g.gg", "...l...", "...l...", "...l...", "...l...", "..ggg.." };
+            string[] rows = { "...e...", "..ese..", "..ese..", "..ede..", "..ede..", "..ese..", "..ede..", "..ede..", "..ese..", "..ede..", "..ede..", "..ese..", ".ggggg.", "gg.g.gg", "...l...", "...l...", "..lll..", "...l...", "..ggg.." };
             float pixel = 0.037f;
             var groups = new Dictionary<char, List<CombineInstance>>();
             var primitive = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -141,7 +142,7 @@ namespace M0.Editor
                 if (mesh == null) { mesh = new Mesh { name = "Sword pixels " + group.Key }; mesh.CombineMeshes(group.Value.ToArray()); AssetDatabase.CreateAsset(mesh, path); }
                 var child = Pivot("Sword " + group.Key, root, Vector3.zero);
                 child.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-                child.gameObject.AddComponent<MeshRenderer>().sharedMaterial = group.Key == 'e' ? edge : group.Key == 's' ? steel : group.Key == 'g' ? trim : leather;
+                child.gameObject.AddComponent<MeshRenderer>().sharedMaterial = group.Key == 'e' ? edge : group.Key == 's' ? steel : group.Key == 'g' ? trim : group.Key == 'd' ? charcoal : leather;
             }
             return root;
         }

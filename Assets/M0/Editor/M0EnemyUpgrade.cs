@@ -7,7 +7,7 @@ namespace M0.Editor
 {
     public static class M0EnemyUpgrade
     {
-        static Material armor, dark, iron, orange;
+        static Material armor, dark, iron, orange, cueMaterial;
         [MenuItem("M0/Upgrade Enemy Models and Attacks")]
         public static void Upgrade()
         {
@@ -29,6 +29,8 @@ namespace M0.Editor
             iron = M0PlayerUpgrade.PixelMaterial("Enemy worn iron", new Color(0.49f, 0.56f, 0.55f));
             orange = AssetDatabase.LoadAssetAtPath<Material>("Assets/M0/Materials/Weakpoint orange.mat");
             var rig = enemy.GetComponent<M0EnemyRig>(); if (rig == null) rig = enemy.gameObject.AddComponent<M0EnemyRig>(); enemy.Rig = rig;
+            var oldCue = enemy.transform.Find("Attack warning ring"); if (oldCue != null) Object.DestroyImmediate(oldCue.gameObject);
+            rig.TelegraphRing = null;
             rig.Torso = enemy.transform.Find("Torso"); rig.Head = enemy.Head;
             rig.LeftShoulder = enemy.LeftArm; rig.RightShoulder = enemy.RightArm;
             rig.LeftLeg = enemy.transform.Find("Left leg"); rig.RightLeg = enemy.transform.Find("Right leg");
@@ -73,7 +75,8 @@ namespace M0.Editor
                 Vector3 anchor = bone.transform == rig.Head ? Vector3.down * 0.23f : bone.transform == rig.LeftShoulder || bone.transform == rig.RightShoulder ? Vector3.zero : Vector3.zero;
                 joint.anchor = anchor; joint.connectedAnchor = joint.connectedBody.transform.InverseTransformPoint(bone.transform.TransformPoint(anchor));
             }
-            enemy.AttackRange = 1.65f; EditorUtility.SetDirty(enemy);
+            rig.TelegraphRing = BuildTelegraphRing(enemy.transform);
+            enemy.AttackRange = 2.0f; EditorUtility.SetDirty(enemy);
         }
         static void Prepare(Transform bone, Vector3 at, Vector3 size, Vector3 center)
         {
@@ -100,8 +103,7 @@ namespace M0.Editor
             if (strike)
             {
                 rig.StrikeShape = fist.gameObject.AddComponent<BoxCollider>(); rig.StrikeShape.isTrigger = true;
-                // A unit box scaled exactly like the visible gauntlet; no proximity damage sphere.
-                rig.StrikeShape.size = Vector3.one;
+                rig.StrikeShape.size = Vector3.one * 1.45f;
                 var trail = Pivot("Short active punch trail", elbow, new Vector3(0, -0.46f, 0.05f));
                 rig.StrikeTrail = trail.gameObject.AddComponent<TrailRenderer>(); rig.StrikeTrail.time = 0.085f;
                 rig.StrikeTrail.widthMultiplier = 0.12f; rig.StrikeTrail.emitting = false;
@@ -109,6 +111,41 @@ namespace M0.Editor
                 rig.StrikeTrail.startColor = new Color(1, 0.45f, 0.18f, 0.4f); rig.StrikeTrail.endColor = new Color(1, 0.25f, 0.05f, 0);
             }
             return elbow;
+        }
+        static LineRenderer BuildTelegraphRing(Transform enemy)
+        {
+            if (cueMaterial == null)
+            {
+                const string materialPath = "Assets/M0/Materials/Enemy attack cue.mat";
+                cueMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+                if (cueMaterial == null)
+                {
+                    var shader = Shader.Find("Universal Render Pipeline/Unlit");
+                    cueMaterial = new Material(shader) { name = "Enemy attack cue" };
+                    cueMaterial.SetColor("_BaseColor", Color.white);
+                    cueMaterial.SetFloat("_Surface", 1);
+                    cueMaterial.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    cueMaterial.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    cueMaterial.SetFloat("_ZWrite", 0);
+                    cueMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    cueMaterial.renderQueue = 3000;
+                    AssetDatabase.CreateAsset(cueMaterial, materialPath);
+                }
+            }
+            var go = new GameObject("Attack warning ring");
+            go.transform.SetParent(enemy, false);
+            go.transform.localPosition = new Vector3(0, 1.05f, 0);
+            var line = go.AddComponent<LineRenderer>();
+            line.useWorldSpace = false; line.loop = true; line.positionCount = 65;
+            line.sharedMaterial = cueMaterial; line.startWidth = line.endWidth = 0.06f;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; line.receiveShadows = false;
+            line.sortingOrder = 5; line.enabled = false;
+            for (int i = 0; i < line.positionCount; i++)
+            {
+                float angle = i * Mathf.PI * 2f / (line.positionCount - 1);
+                line.SetPosition(i, new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0));
+            }
+            return line;
         }
         static Transform Pivot(string name, Transform parent, Vector3 at)
         { var go = new GameObject(name); go.transform.SetParent(parent, false); go.transform.localPosition = at; return go.transform; }

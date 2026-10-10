@@ -16,7 +16,7 @@ namespace M0
         public float CrouchHeight = 1.15f, CrouchSpeed = 2.4f;
         [Header("Combat tuning")]
         public float MeleeRange = 2.6f, LightDamage = 34, HeavyDamage = 68, ShotDamage = 34;
-        public float DodgeDistance = 3.4f, DodgeDuration = 0.52f, Invulnerability = 0.2f, DodgeCooldown = 0.85f;
+        public float DodgeDistance = 3.4f, DodgeDuration = 0.52f, Invulnerability = 0.28f, DodgeCooldown = 0.85f;
         public float BlockWindup = 0, PerfectWindow = 0.16f, BlockReduction = 0.9f;
         public float LightRecovery = 0.46f, HeavyRecovery = 0.78f, HitStop = 0.083f, WeakpointHitStop = 0.2f;
         public float HeavyKnockback = 2.6f, ShotCooldown = 0.22f, RecoilFov = 2.5f;
@@ -43,6 +43,7 @@ namespace M0
         public bool CounterReady => Time.time < counterUntil;
         public bool CounterAttacking => counterAttacking;
         public bool CounterRanged => counterRanged;
+        public bool CounterDodge => counterFromDodge;
         public bool CounterQueued => counterQueued;
         public bool MeleeSweepActive => meleeSweepActive;
         public int LastMeleeHitCount { get; private set; }
@@ -53,7 +54,9 @@ namespace M0
         public bool HeavyAttack => pendingHeavy;
         public int Combo => combo;
         public float StrikePhase => attackLength > 0 ? attackWindup / attackLength : 0.3f;
-        public Vector3 EyePosition => transform.position + Vector3.up * (controller.height - 0.15f);
+        public Vector3 EyePosition => Rig != null && Rig.Eyes != null
+            ? Rig.Eyes.position
+            : transform.position + Vector3.up * (controller.height - 0.26f);
         const int WorldMask = ~(1 << 2);
         CharacterController controller;
         float pitch, vertical, dodgeLeft, dodgeAge, nextDodge, blockStarted, recovery, windup;
@@ -69,20 +72,37 @@ namespace M0
         bool meleeSweepActive, meleeSweepHeavy;
         Vector3 guardVelocity;
         float guardSpringVelocity;
-        bool dodgeRewarded, counterAttacking, counterRanged, counterResolved, counterQueued, counterQueuedHeavy;
+        bool dodgeRewarded, counterAttacking, counterRanged, counterResolved, counterQueued, counterQueuedHeavy, counterFromDodge;
         bool? blockOverride;
         int combo;
         bool pendingHeavy, pendingAttack, buffered, bufferedHeavy;
         M0Input Input => M0Sandbox.Instance.Input;
-        void Awake() { controller = GetComponent<CharacterController>(); standingHeight = controller.height; EnsureBladeVolume(); }
+        void Awake() { EnsureInitialized(); EnsureRigPresentation(); }
+        void EnsureInitialized()
+        {
+            if (controller == null)
+            {
+                controller = GetComponent<CharacterController>();
+                standingHeight = controller.height;
+            }
+            EnsureBladeVolume();
+        }
+        public void EnsureRigPresentation()
+        {
+            if (Rig == null) return;
+            Rig.EnsureEyeAnchor();
+            if (Rig.Body != null && !Rig.Body.gameObject.activeSelf) Rig.Body.gameObject.SetActive(true);
+        }
         public void ResetPlayer(Vector3 position)
         {
+            EnsureInitialized();
             controller.enabled = false; transform.SetPositionAndRotation(position, Quaternion.identity);
             controller.height = standingHeight; controller.center = Vector3.up * standingHeight * 0.5f; controller.enabled = true;
+            EnsureRigPresentation();
             pitch = vertical = dodgeLeft = dodgeAge = shake = fovKick = 0;
             nextDodge = damageCooldown = counterUntil = comboUntil = GuardImpact = 0;
             CancelAttack(); Blocking = Crouching = false; combo = 0; Health = 100;
-            guardVelocity = Vector3.zero; guardSpringVelocity = 0; dodgeRewarded = counterAttacking = counterQueued = false;
+            guardVelocity = Vector3.zero; guardSpringVelocity = 0; dodgeRewarded = counterAttacking = counterQueued = counterFromDodge = false;
             counterTarget = counterHint = null; counterMoveDistance = counterTraveled = 0;
             meleeSweepActive = false; meleeHitTargets.Clear(); LastMeleeHitCount = 0;
             blockOverride = null;
@@ -91,6 +111,7 @@ namespace M0
         public void TogglePerspective() { ThirdPerson = !ThirdPerson; }
         void Update()
         {
+            EnsureInitialized();
             if (M0Sandbox.Instance == null || Input.Blocked || Health <= 0) return;
             var mouse = Mouse.current;
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
@@ -202,6 +223,7 @@ namespace M0
         }
         void LateUpdate()
         {
+            EnsureInitialized();
             if (M0Sandbox.Instance == null || Input.Blocked) return;
             shake = Mathf.MoveTowards(shake, 0, Time.unscaledDeltaTime * 3);
             GuardImpact = Mathf.SmoothDamp(GuardImpact, 0, ref guardSpringVelocity, 0.12f, Mathf.Infinity, Time.deltaTime);
@@ -218,7 +240,7 @@ namespace M0
                 if (Physics.SphereCast(eye, 0.18f, offset.normalized, out var hit, distance, WorldMask, QueryTriggerInteraction.Ignore)) distance = Mathf.Max(0, hit.distance - 0.08f);
                 View.transform.position = eye + offset.normalized * distance;
             }
-            else View.transform.position = eye + transform.forward * 0.12f + new Vector3(0, bob - evadeDip, 0) + Random.insideUnitSphere * jolt;
+            else View.transform.position = eye + new Vector3(0, bob - evadeDip, 0) + Random.insideUnitSphere * jolt;
             View.fieldOfView = (ThirdPerson ? 75 : FieldOfView) + fovKick;
             if (Rig != null) Rig.Present(this);
         }
@@ -227,8 +249,8 @@ namespace M0
             if (Blade == null || bladeVolume != null) return;
             bladeVolume = Blade.GetComponent<BoxCollider>();
             if (bladeVolume == null) bladeVolume = Blade.gameObject.AddComponent<BoxCollider>();
-            bladeVolume.center = new Vector3(0, 0.31f, 0.025f);
-            bladeVolume.size = new Vector3(0.26f, 0.70f, 0.14f);
+            bladeVolume.center = new Vector3(0, 0.32f, 0.035f);
+            bladeVolume.size = new Vector3(0.50f, 0.95f, 0.28f);
             bladeVolume.isTrigger = true;
         }
         void CancelAttack()
@@ -240,7 +262,7 @@ namespace M0
         public bool StartDodge(Vector2 move)
         {
             if (Time.time < nextDodge || Health <= 0) return false;
-            dodgeDirection = move.sqrMagnitude > 0 ? (transform.right * move.x + transform.forward * move.y).normalized : transform.forward;
+            dodgeDirection = move.sqrMagnitude > 0 ? (transform.right * move.x + transform.forward * move.y).normalized : -transform.forward;
             dodgeLeft = DodgeDuration; dodgeAge = 0; nextDodge = Time.time + DodgeCooldown;
             DodgeOrigin = transform.position; dodgeRewarded = false;
             CancelAttack(); Blocking = false; M0Sandbox.Instance.Fx.PlayTone(280, 0.1f, 0.13f);
@@ -284,7 +306,7 @@ namespace M0
             Vector3 delta = target.Head.position - transform.position; delta.y = 0;
             counterDirection = delta.sqrMagnitude > 0.001f ? delta.normalized : transform.forward;
             float distance = Vector3.Distance(EyePosition, target.Head.position);
-            counterMoveDistance = ranged ? 0 : Mathf.Clamp(distance - 1.45f, 0, CounterLungeDistance);
+            counterMoveDistance = ranged || !counterFromDodge ? 0 : Mathf.Clamp(distance - 1.25f, 0, CounterLungeDistance);
             counterTraveled = 0;
             float duration = ranged ? Mathf.Min(CounterDuration, 0.50f) : Mathf.Min(CounterDuration, 0.56f);
             attackLength = attackAnimation = duration; attackWindup = 0;
@@ -300,7 +322,7 @@ namespace M0
             if (flat.sqrMagnitude > 0.001f)
             {
                 Vector3 desired = flat.normalized;
-                float turnSpeed = counterRanged ? 300f : 430f;
+                float turnSpeed = counterRanged ? 300f : counterFromDodge ? 430f : 520f;
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(desired), turnSpeed * Time.unscaledDeltaTime);
                 counterDirection = Vector3.Slerp(counterDirection, desired, 1 - Mathf.Exp(-13f * Time.unscaledDeltaTime)).normalized;
             }
@@ -354,12 +376,13 @@ namespace M0
             {
                 direction = counterDirection;
                 counterTarget.HitStopDuration = WeakpointHitStop;
-                counterTarget.ApplyHit((pendingHeavy ? HeavyDamage : LightDamage) * CounterDamageMultiplier, false, direction, 4.2f);
+                float multiplier = CounterDamageMultiplier * (counterFromDodge ? 1f : 1.28f);
+                counterTarget.ApplyHit((pendingHeavy ? HeavyDamage : LightDamage) * multiplier, false, direction, counterFromDodge ? 4.2f : 6.2f);
                 if (counterTarget.Alive) counterTarget.Stagger(0.55f);
                 M0Sandbox.Instance.Fx.Sparks(counterTarget.Head.position, new Color(1, 0.74f, 0.24f), 22, -direction, 1.2f);
                 M0Sandbox.Instance.Fx.PlayTone(980, 0.16f, 0.28f);
             }
-            M0Sandbox.Instance.ShowMessage(counterRanged ? "精准反击 · 自动索敌" : "闪避反击 · 自动索敌");
+            M0Sandbox.Instance.ShowMessage(counterRanged ? "精准反击 · 自动索敌" : counterFromDodge ? "闪避反击 · 冲刺追击" : "格挡反击 · 强力横斩");
             counterTarget = null;
         }
         public void Melee(bool heavy)
@@ -386,7 +409,7 @@ namespace M0
             GetBladeSegment(out var currentBase, out var currentTip);
             float travel = Mathf.Max(Vector3.Distance(previousBladeBase, currentBase), Vector3.Distance(previousBladeTip, currentTip));
             int samples = Mathf.Clamp(Mathf.CeilToInt(travel / 0.055f), 1, 20);
-            float radius = meleeSweepHeavy ? 0.13f : 0.105f;
+            float radius = meleeSweepHeavy ? 0.19f : 0.16f;
             for (int i = 1; i <= samples; i++)
             {
                 float t = i / (float)samples;
@@ -465,7 +488,7 @@ namespace M0
                 shake = Mathf.Max(shake, perfect ? 1.65f : 0.72f);
                 M0Sandbox.Instance.Fx.PlayTone(result.Kind == HitKind.PerfectBlock ? 880 : 420, 0.12f, 0.22f);
             }
-            if (result.Kind == HitKind.PerfectBlock) { attacker.Stagger(1.1f); counterUntil = Time.time + 1.2f; }
+            if (result.Kind == HitKind.PerfectBlock) { attacker.Stagger(1.1f); counterFromDodge = false; counterUntil = Time.time + 1.2f; }
             if (result.Kind == HitKind.Evade && InvulnerableNow) RewardDodge(attacker);
             if (result.Damage > 0) { shake = 0.5f; M0Sandbox.Instance.Fx.PlayerHurt(); }
             M0Sandbox.Instance.ShowMessage(result.Kind == HitKind.PerfectBlock ? "完美格挡 · 反击就绪" : result.Kind == HitKind.Block ? "格挡 · 90% 减伤" : result.Kind == HitKind.Evade ? "极限闪避 · 反击就绪" : "受击 -" + result.Damage.ToString("0"));
@@ -481,6 +504,7 @@ namespace M0
         {
             if (dodgeRewarded) return;
             dodgeRewarded = true;
+            counterFromDodge = true;
             counterHint = attacker;
             counterUntil = Time.time + 1.2f;
             M0Sandbox.Instance.DodgeEffect.Trigger();

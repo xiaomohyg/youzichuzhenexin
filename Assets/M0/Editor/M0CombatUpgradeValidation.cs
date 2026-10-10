@@ -20,7 +20,7 @@ namespace M0.Editor
         static double deadline, ready;
         static float pausedScale, fixedStep;
         static Vector3 start;
-        static bool windupChecked, dodgeObserved, guardImpactObserved, autoRespawn;
+        static bool windupChecked, dodgeObserved, guardImpactObserved, autoRespawn, rigChecked;
         static bool pauseWhenUnfocused;
         static bool runInBackground;
         static readonly List<string> lines = new List<string>();
@@ -41,7 +41,15 @@ namespace M0.Editor
                 "Perfect block opens immediately on guard input");
             Check(Mathf.Approximately(CombatRules.Resolve(100, 14, false, false, true, 0.4f, 0, 0.16f, 0.9f).Damage, 1.4f),
                 "Holding guard transitions to normal 90 percent mitigation");
-            Setup(); Running = true; EditorApplication.update += Update;
+            Setup();
+            var playerGuard = s.Player.Blade.GetComponent<BoxCollider>();
+            Check(playerGuard != null && Vector3.Distance(playerGuard.size, new Vector3(0.50f, 0.95f, 0.28f)) < 0.001f && s.Player.Invulnerability >= 0.28f,
+                "Expanded sword guard volume and dodge contact window are active");
+            Vector3 resetPosition = s.Player.transform.position;
+            Check(s.Player.StartDodge(Vector2.zero) && Vector3.Dot(s.Player.DodgeLocalDirection, Vector3.back) > 0.99f,
+                "Default dodge travels backward");
+            s.Player.ResetPlayer(resetPosition);
+            Running = true; EditorApplication.update += Update;
         }
         static void Action(params int[] actions)
         {
@@ -70,7 +78,7 @@ namespace M0.Editor
             enemy = s.Enemies[0]; enemy.ResetEnemy(new Vector3(0, 0.02f, -6.6f));
             enemy.enabled = true;
             enemy.transform.rotation = Quaternion.Euler(0, 180, 0);
-            Physics.SyncTransforms(); windupChecked = dodgeObserved = guardImpactObserved = false;
+            Physics.SyncTransforms(); windupChecked = dodgeObserved = guardImpactObserved = rigChecked = false;
             deadline = EditorApplication.timeSinceStartup + 5; ready = 0;
         }
         static void Check(bool okay, string name) { lines.Add((okay ? "PASS " : "FAIL ") + name); if (!okay) errors++; }
@@ -90,6 +98,28 @@ namespace M0.Editor
                 if (now > deadline) { Check(false, "Scenario " + step + " reached timeout; state=" + enemy.State + " hp=" + s.Player.Health); Finish(); return; }
                 if (step == 0 && (enemy.State == EnemyState.Windup || enemy.State == EnemyState.Attack))
                 {
+                    if (!rigChecked)
+                    {
+                        s.Player.Rig.Present(s.Player);
+                        bool visibleLeftHand = s.Player.Rig.LeftHand.gameObject.activeInHierarchy ||
+                            s.Player.Rig.LeftUpper.gameObject.activeInHierarchy || s.Player.Rig.LeftForearm.gameObject.activeInHierarchy;
+                        var torsoRenderer = s.Player.Rig.Torso.GetComponent<Renderer>();
+                        var leftArmRenderer = s.Player.Rig.BodyLeftArm.GetComponentInChildren<Renderer>(true);
+                        var leftLegRenderer = s.Player.Rig.LeftLeg.GetComponentInChildren<Renderer>(true);
+                        bool headVisible = true;
+                        foreach (var renderer in s.Player.Rig.Head.GetComponentsInChildren<Renderer>(true))
+                            headVisible &= renderer.enabled && renderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                        Check(Vector3.Distance(s.Player.View.transform.position, s.Player.EyePosition) < 0.01f &&
+                            s.Player.Rig.Body.gameObject.activeInHierarchy && torsoRenderer.enabled &&
+                            torsoRenderer.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly &&
+                            leftArmRenderer.enabled && leftLegRenderer.enabled && headVisible && !visibleLeftHand &&
+                            s.Player.Rig.Eyes.parent == s.Player.Rig.Body,
+                            "First-person shows the eye-anchored head, torso, legs and hanging left arm without a screen-space left hand");
+                        Vector3 expectedWrist = s.Player.Rig.BodyRightArm.TransformPoint(new Vector3(0, -0.59f, 0));
+                        Check(Vector3.Distance(s.Player.Rig.RightHand.position, expectedWrist) < 0.001f,
+                            "First and third person weapon wrist follows the same animated arm bone");
+                        rigChecked = true;
+                    }
                     trajectory.Add(Time.time.ToString("F3") + " " + enemy.State + " phase=" + enemy.AttackPhase.ToString("F3") + " fist=" + enemy.Rig.StrikeShape.transform.position.ToString("F3") + " hp=" + s.Player.Health);
                     if (capture < 8 && (enemy.State == EnemyState.Attack || capture == 0))
                     { ScreenCapture.CaptureScreenshot("Screenshots/CombatTune/punch-" + (capture++).ToString("00") + ".png"); }
@@ -99,14 +129,35 @@ namespace M0.Editor
                 {
                     case 0:
                         if (enemy.State == EnemyState.Windup && !windupChecked)
-                        { Check(s.Player.Health == 100, "Windup cannot damage player"); windupChecked = true; }
+                        {
+                            Check(s.Player.Health == 100, "Windup cannot damage player");
+                            enemy.Rig.SetTelegraph(0.5f);
+                            var bodyTint = new MaterialPropertyBlock(); enemy.BodyRenderer.GetPropertyBlock(bodyTint);
+                            Check(enemy.Rig.TelegraphRing != null && enemy.Rig.TelegraphRing.enabled && enemy.Rig.TelegraphRing.positionCount >= 48,
+                                "Windup enables the standalone warning ring");
+                            Vector3 ringCenter = enemy.transform.position + Vector3.up * 1.05f;
+                            Vector3 playerDirection = Vector3.ProjectOnPlane(s.Player.transform.position - ringCenter, Vector3.up).normalized;
+                            Check(Vector3.Distance(enemy.Rig.TelegraphRing.transform.position, ringCenter) < 0.02f &&
+                                Vector3.Dot(enemy.Rig.TelegraphRing.transform.forward, playerDirection) > 0.98f &&
+                                Vector3.Dot(enemy.Rig.TelegraphRing.transform.up, Vector3.up) > 0.98f,
+                                "Warning ring is centered on the enemy with its vertical face aimed at the player");
+                            Check(bodyTint.GetColor("_BaseColor").r < 0.4f, "Windup no longer tints the enemy body red");
+                            float power = Mathf.InverseLerp(0.66f, 1.12f, enemy.TelegraphTime);
+                            Check(enemy.TelegraphTime >= 0.66f && enemy.TelegraphTime <= 1.12f &&
+                                enemy.DashDuration >= 0.20f && enemy.DashDuration <= 0.30f &&
+                                enemy.AttackDuration - enemy.DashDuration >= 0.34f && enemy.AttackDuration - enemy.DashDuration <= 0.48f &&
+                                Mathf.Abs(enemy.Damage - Mathf.Lerp(10f, 22f, power)) < 0.01f &&
+                                Mathf.Abs(enemy.DashSpeed - Mathf.Lerp(8.2f, 5.8f, power)) < 0.01f,
+                                "Random enemy windup, dash and strike stay bounded with heavy/slow and light/fast variants");
+                            windupChecked = true;
+                        }
                         if (enemy.State != EnemyState.Recovery) break;
-                        Check(s.Player.Health == 86, "Actual animated gauntlet contacts player and causes exactly one 14-damage hit");
-                        Check(enemy.Rig.StrikeShape.size == Vector3.one && enemy.Rig.StrikeShape.transform.localScale == new Vector3(0.34f, 0.30f, 0.36f), "Damage box matches visible gauntlet size");
+                        Check(Mathf.Abs(s.Player.Health - (100 - enemy.Damage)) < 0.01f, "Actual animated gauntlet contacts player and causes exactly one attack-specific hit");
+                        Check(enemy.Rig.StrikeShape.size == Vector3.one * 1.45f && enemy.Rig.StrikeShape.transform.localScale == new Vector3(0.34f, 0.30f, 0.36f), "Damage volume extends beyond the visible gauntlet for reliable contact");
                         enemy.enabled = false; ready = now + 0.35; Next(1); ready = now + 0.35; break;
                     case 1:
                         if (now < ready) break;
-                        Check(s.Player.Health == 86, "Recovery and persistent model overlap do not repeat damage"); Setup(); Next(2); break;
+                        Check(Mathf.Abs(s.Player.Health - (100 - enemy.Damage)) < 0.01f, "Recovery and persistent model overlap do not repeat damage"); Setup(); Next(2); break;
                     case 2:
                         if (enemy.State != EnemyState.Attack) break;
                         s.Player.ResetPlayer(new Vector3(1.15f, 0.1f, -8)); Physics.SyncTransforms(); Next(3); break;
@@ -131,14 +182,14 @@ namespace M0.Editor
                         Check(!s.DodgeEffect.Active && Time.timeScale == 1 && !s.Player.CounterReady, "Empty dodge has no slow motion or counter reward");
                         Setup(); Next(9); break;
                     case 9:
-                        if (enemy.State != EnemyState.Attack || enemy.AttackPhase < 0.25f) break;
+                        if (enemy.State != EnemyState.Attack || !enemy.StrikeActive) break;
                         trajectory.Add("DODGE INPUT phase=" + enemy.AttackPhase.ToString("F3") + " player=" + s.Player.transform.position);
                         s.Player.StartDodge(Vector2.left); Next(10); break;
                     case 10:
                         if (s.Player.IsDodging && !dodgeObserved)
                         { dodgeObserved = true; trajectory.Add("DODGE OBSERVED progress=" + s.Player.DodgeProgress.ToString("F3") + " origin=" + s.Player.DodgeOrigin + " player=" + s.Player.transform.position); }
                         if (!s.DodgeEffect.Active) break;
-                        Check(s.Player.Health == 100 && s.Player.CounterReady && Time.timeScale < 0.4f, "Actual avoided swing triggers grayscale slow motion and counter without damage");
+                        Check(s.Player.Health == 100 && s.Player.CounterReady && s.Player.CounterDodge && Time.timeScale < 0.4f, "Actual avoided swing triggers grayscale slow motion and a dodge counter without damage");
                         Check(s.Player.View.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing, "URP camera post processing enabled for real grayscale");
                         Check(s.DodgeEffect.Duration >= 1.1f, "Successful-dodge time dilation lasts longer than one second");
                         ScreenCapture.CaptureScreenshot("Screenshots/CombatTune/successful-dodge-gray.png");
@@ -175,7 +226,7 @@ namespace M0.Editor
                     case 15:
                         if (enemy.State != EnemyState.Recovery) break;
                         trajectory.Add("GUARD RESULT health=" + s.Player.Health.ToString("F2") + " impact=" + s.Player.GuardImpact.ToString("F3") + " position=" + s.Player.transform.position);
-                        Check(Mathf.Abs(s.Player.Health - 98.6f) < 0.01f && guardImpactObserved, "Animated fist collides with sword volume, blocks for 90% mitigation and triggers impact");
+                        Check(Mathf.Abs(s.Player.Health - (100 - enemy.Damage * 0.1f)) < 0.01f && guardImpactObserved, "Animated fist collides with sword volume, blocks for 90% mitigation and triggers impact");
                         enemy.enabled = false; Next(16); ready = now + 0.25; break;
                     case 16:
                         if (now < ready) break;
@@ -195,7 +246,7 @@ namespace M0.Editor
                         Check(parry.Kind == HitKind.PerfectBlock && s.Player.Health == 100, "Live perfect block negates contact damage");
                         Check(s.Player.GuardImpact > 1.2f && s.Player.transform.position == perfectPosition, "Perfect block has stronger impact and no player knockback");
                         Check(s.Fx.Particles.particleCount >= 48, "Perfect block emits a dense contact spark burst with a white-hot core");
-                        Check(s.Player.TryStartCounter(false), "Perfect-block follow-up can start melee counter without input timing dependency"); Next(20); ready = now + 0.05; break;
+                        Check(s.Player.TryStartCounter(false) && !s.Player.CounterDodge, "Perfect-block follow-up starts the separate non-lunging guard counter"); Next(20); ready = now + 0.05; break;
                     case 20:
                         if (now < ready) break;
                         Check(s.Player.CounterAttacking && !s.Player.CounterRanged, "Perfect-block follow-up starts a distinct melee counter");

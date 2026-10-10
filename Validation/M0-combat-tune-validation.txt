@@ -1,14 +1,20 @@
 PASS Perfect block opens immediately on guard input
 PASS Holding guard transitions to normal 90 percent mitigation
+PASS Expanded sword guard volume and dodge contact window are active
+PASS Default dodge travels backward
+PASS First-person camera sits at the eye marker while body and left hand are hidden
 PASS Windup cannot damage player
-PASS Actual animated gauntlet contacts player and causes exactly one 14-damage hit
-PASS Damage box matches visible gauntlet size
+PASS Windup enables the standalone ground warning ring
+PASS Windup no longer tints the enemy body red
+PASS Random enemy windup, dash and strike stay bounded with heavy/slow and light/fast variants
+PASS Actual animated gauntlet contacts player and causes exactly one attack-specific hit
+PASS Damage volume extends beyond the visible gauntlet for reliable contact
 PASS Recovery and persistent model overlap do not repeat damage
 PASS Side-step out of actual swing misses despite nearby player
 PASS Cover placed during windup blocks attack contact through wall
 PASS Stagger interrupts pending attack and cancels damage
 PASS Empty dodge has no slow motion or counter reward
-PASS Actual avoided swing triggers grayscale slow motion and counter without damage
+PASS Actual avoided swing triggers grayscale slow motion and a dodge counter without damage
 PASS URP camera post processing enabled for real grayscale
 PASS Successful-dodge time dilation lasts longer than one second
 PASS Sidearm counter accepts immediate activation during the successful dodge
@@ -25,7 +31,7 @@ PASS Guard recoil respects rear-wall collision
 PASS Live perfect block negates contact damage
 PASS Perfect block has stronger impact and no player knockback
 PASS Perfect block emits a dense contact spark burst with a white-hot core
-PASS Perfect-block follow-up can start melee counter without input timing dependency
+PASS Perfect-block follow-up starts the separate non-lunging guard counter
 PASS Perfect-block follow-up starts a distinct melee counter
 PASS Melee counter auto-locks and damages the visible target
 PASS Perfect block grants a counter before ranged weapon swap

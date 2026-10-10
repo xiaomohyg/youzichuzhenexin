@@ -106,7 +106,7 @@ namespace M0.Editor
             var go = new GameObject("Player / FPV controller"); go.transform.position = new Vector3(0, 0.1f, -8);
             var controller = go.AddComponent<CharacterController>(); controller.height = 1.8f; controller.radius = 0.32f; controller.center = Vector3.up * 0.9f; controller.stepOffset = 0.35f; controller.skinWidth = 0.03f;
             var player = go.AddComponent<M0Player>();
-            var cameraObject = new GameObject("First Person Camera"); cameraObject.tag = "MainCamera"; cameraObject.transform.SetParent(go.transform, false); cameraObject.transform.localPosition = Vector3.up * 1.65f;
+            var cameraObject = new GameObject("First Person Camera"); cameraObject.tag = "MainCamera"; cameraObject.transform.SetParent(go.transform, false); cameraObject.transform.localPosition = new Vector3(0, 1.54f, 0.17f);
             var camera = cameraObject.AddComponent<Camera>(); camera.fieldOfView = 94; camera.nearClipPlane = 0.04f; camera.farClipPlane = 120; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(0.07f, 0.1f, 0.14f);
             cameraObject.AddComponent<AudioListener>(); player.View = camera;
             var arms = new GameObject("First person hands and weapon").transform; arms.SetParent(camera.transform, false); arms.localPosition = new Vector3(0.32f, -0.32f, 0.62f); player.WeaponRoot = arms;
