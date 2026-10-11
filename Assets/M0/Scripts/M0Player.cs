@@ -485,6 +485,7 @@ namespace M0
                 Vector3 impact = contactPoint ?? attacker.StrikePoint;
                 Vector3 sparkNormal = EyePosition - impact;
                 M0Sandbox.Instance.Fx.Sparks(impact, perfect ? new Color(1, 0.72f, 0.2f) : new Color(0.45f, 0.88f, 1), perfect ? 42 : 18, sparkNormal, perfect ? 1.55f : 1.05f);
+                M0Sandbox.Instance.Fx.GuardConfirmed(perfect);
                 shake = Mathf.Max(shake, perfect ? 1.65f : 0.72f);
                 M0Sandbox.Instance.Fx.PlayTone(result.Kind == HitKind.PerfectBlock ? 880 : 420, 0.12f, 0.22f);
             }

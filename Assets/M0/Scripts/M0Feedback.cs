@@ -10,6 +10,8 @@ namespace M0
         public Material TracerMaterial;
         public float HitMarker { get; private set; }
         public float HurtOverlay { get; private set; }
+        public float GuardMarker { get; private set; }
+        public bool PerfectGuardMarker { get; private set; }
         public bool StrongHit { get; private set; }
         public float Volume = 0.55f;
         readonly Dictionary<int, AudioClip> clips = new Dictionary<int, AudioClip>();
@@ -30,8 +32,21 @@ namespace M0
             M0Sandbox.Instance.ShowMessage(StrongHit ? "弱点击杀！" : "命中 " + hit.Damage.ToString("0"));
         }
         public void PlayerHurt() { HurtOverlay = 0.3f; PlayTone(65, 0.16f, 0.24f); }
-        void Update() { HitMarker = Mathf.Max(0, HitMarker - Time.deltaTime); HurtOverlay = Mathf.Max(0, HurtOverlay - Time.deltaTime); numbers.RemoveAll(n => Time.time - n.Born > 0.7f); }
-        public void Clear() { numbers.Clear(); HitMarker = HurtOverlay = 0; Particles.Clear(); }
+        void Update()
+        {
+            HitMarker = Mathf.Max(0, HitMarker - Time.deltaTime);
+            HurtOverlay = Mathf.Max(0, HurtOverlay - Time.deltaTime);
+            GuardMarker = Mathf.Max(0, GuardMarker - Time.deltaTime);
+            if (GuardMarker <= 0) PerfectGuardMarker = false;
+            numbers.RemoveAll(n => Time.time - n.Born > 0.7f);
+        }
+        public void GuardConfirmed(bool perfect)
+        {
+            // Center feedback makes the short parry window readable without changing combat timing.
+            GuardMarker = perfect ? 0.18f : 0.12f;
+            PerfectGuardMarker = perfect;
+        }
+        public void Clear() { numbers.Clear(); HitMarker = HurtOverlay = GuardMarker = 0; PerfectGuardMarker = false; Particles.Clear(); }
         public void Sparks(Vector3 position, Color color, int count)
         {
             Sparks(position, color, count, Vector3.up, 1f);

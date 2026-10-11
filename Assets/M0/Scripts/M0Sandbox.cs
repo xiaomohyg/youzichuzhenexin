@@ -236,6 +236,17 @@ namespace M0
                     GUI.color = Fx.StrongHit ? new Color(1, 0.75f, 0.2f) : new Color(0.4f, 1, 1);
                     GUI.Label(new Rect(cx - 22, cy - 28, 44, 44), "×", title); GUI.color = Color.white;
                 }
+                if (Fx.GuardMarker > 0)
+                {
+                    float life = Fx.GuardMarker / (Fx.PerfectGuardMarker ? 0.18f : 0.12f);
+                    float radius = Mathf.Lerp(Fx.PerfectGuardMarker ? 10 : 8, Fx.PerfectGuardMarker ? 30 : 21, 1 - life);
+                    Color color = Fx.PerfectGuardMarker ? new Color(1f, 0.76f, 0.18f, life) : new Color(0.35f, 0.92f, 1f, life);
+                    GUI.color = color;
+                    GUI.DrawTexture(new Rect(cx - radius, cy - 1.5f, radius * 2, 3), Texture2D.whiteTexture);
+                    GUI.DrawTexture(new Rect(cx - 1.5f, cy - radius, 3, radius * 2), Texture2D.whiteTexture);
+                    if (Fx.PerfectGuardMarker) GUI.Label(new Rect(cx - 18, cy - 41, 36, 30), "!", title);
+                    GUI.color = Color.white;
+                }
                 if (Time.time < messageUntil) Text(cx - 230, cy + 42, 460, message, centered);
                 RectColor(new Rect(16, height - 143, width - 32, 62), new Color(0.02f, 0.05f, 0.08f, 0.82f));
                 Text(24, height - 140, width - 48, "[" + Input.Label(0) + "/" + Input.Label(1) + "/" + Input.Label(2) + "/" + Input.Label(3) + "] 移动    [" + Input.Label(4) + "] 奔跑    [" + Input.Label(5) + "] 跳跃    [" + Input.Label(6) + "] 闪避    [" + Input.Label(12) + "] 下蹲    [" + Input.Label(13) + "] 视角", small);
