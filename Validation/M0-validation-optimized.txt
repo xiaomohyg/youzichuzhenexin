@@ -5,7 +5,7 @@ PASS Weakpoint kills regardless of health
 PASS Rear attack bypasses block
 PASS Input W moves player
 PASS Dodge enters live invulnerability window
-PASS Dodge distance is 3.4m without extra movement
+PASS Default backward dodge travels 3.4m without extra movement
 PASS Dodge camera does not roll
 PASS Menu blocks player movement
 PASS Interactive rebinding accepts new key
@@ -18,7 +18,7 @@ PASS Head collider raycast kills enemy
 PASS Hit events drive HUD and network template
 PASS Ragdoll falls and freezes after ground contact
 PASS Settled corpse keeps solid colliders
-TRACE sword sweep health=0.0/80 hits=1 bounds=Center: (0.04, 1.59, -7.27), Extents: (0.25, 0.48, 0.82)
+TRACE sword sweep health=12.0/80 hits=1 bounds=Center: (0.48, 1.42, -7.75), Extents: (0.54, 0.82, 0.61)
 PASS Animated sword volume sweeps through and hits nearby enemy once
 PASS Live perfect block staggers attacker
 PASS Unblocked enemy attack reduces player health
@@ -27,12 +27,14 @@ PASS Dodge cancels pending heavy attack before damage
 PASS Block cancels pending heavy attack before damage
 PASS Corpse pool retains at most 20, recycles oldest
 PASS Restart restores pool and player
+PASS Restart keeps the player body visible and eye anchor independent of head pitch
+PASS Restart assigns active enemies to separated spawn positions
 PASS Crouch input lowers collider and eye
 PASS Low ceiling prevents standing through geometry
 PASS View key reveals body and moves camera behind player
 PASS Crouch release restores standing height with clearance
 PASS Third-person camera retracts before a wall
-PASS First-person view keeps partial body, hides clipping head and renders left-hand shadows only
+PASS First-person view keeps the head and body visible with an eye anchor independent of head pitch and no screen-space left hand
 PASS Hotbar key equips sidearm
 PASS Actual mouse wheel selects empty slot and holsters weapon
 PASS Reverse wheel equips previous item

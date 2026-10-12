@@ -78,7 +78,9 @@ namespace M0.Editor
                     case 3:
                         Check(sandbox.Player.InvulnerableNow, "Dodge enters live invulnerability window"); Keys(); Wait(0.45); break;
                     case 4:
-                        Check(Mathf.Abs(sandbox.Player.transform.position.z - origin.z - sandbox.Player.DodgeDistance) < 0.25f, "Dodge distance is 3.4m without extra movement");
+                        Check(Mathf.Abs(Vector3.Distance(sandbox.Player.transform.position, origin) - sandbox.Player.DodgeDistance) < 0.25f &&
+                            Vector3.Dot((sandbox.Player.transform.position - origin).normalized, -sandbox.Player.transform.forward) > 0.98f,
+                            "Default backward dodge travels 3.4m without extra movement");
                         Check(Mathf.Abs(sandbox.Player.View.transform.eulerAngles.z) < 0.01f, "Dodge camera does not roll");
                         sandbox.OpenMenu(false); origin = sandbox.Player.transform.position; Keys(Key.W); Wait(0.2); break;
                     case 5:
@@ -107,14 +109,17 @@ namespace M0.Editor
                         Check(target.Health == target.MaxHealth - sandbox.Player.ShotDamage && target.Alive, "Body raycast shot damages without instant death"); Wait(0.1); break;
                     case 14:
                         sandbox.Player.View.transform.LookAt(target.Head); Physics.SyncTransforms(); sandbox.Player.Shoot();
-                        Check(!target.Alive && sandbox.Kills == 1, "Head collider raycast kills enemy");
+                        Check(target.Alive && target.Health == target.MaxHealth - sandbox.Player.ShotDamage - sandbox.Player.HeadshotDamage,
+                            "Pistol headshot deals 25 damage without a one-shot kill");
+                        for (int i = 0; i < 4 && target.Alive; i++) sandbox.Player.Shoot();
+                        Check(!target.Alive && sandbox.Kills == 1, "Repeated headshots eventually kill the enemy");
                         Check(sandbox.Fx.HitMarker > 0 && sandbox.Network.HitsObserved >= 2, "Hit events drive HUD and network template");
                         target.enabled = true; Wait(9); break;
                     case 15:
                         Check(target.RagdollActive && target.CorpseSettled, "Ragdoll falls and freezes after ground contact");
                         bool solid = true; foreach (var body in target.GetComponentsInChildren<Rigidbody>()) solid &= body.isKinematic && body.GetComponent<Collider>().enabled;
                         Check(solid, "Settled corpse keeps solid colliders");
-                        sandbox.Player.ResetPlayer(new Vector3(0, 0.1f, -8)); target.ResetEnemy(new Vector3(0, 0.02f, -6.7f)); target.enabled = false;
+                        sandbox.Player.ResetPlayer(new Vector3(0, 0.1f, -8)); target.ResetEnemy(new Vector3(0, 0.02f, -7.05f)); target.enabled = false;
                         Wait(0.1); break;
                     case 16:
                         sandbox.Player.View.transform.LookAt(target.transform.position + Vector3.up * 0.94f); Physics.SyncTransforms();

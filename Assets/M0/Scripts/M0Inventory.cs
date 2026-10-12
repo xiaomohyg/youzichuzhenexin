@@ -1,7 +1,7 @@
 using System;
 namespace M0
 {
-    public enum M0Item { Empty, Sword, Sidearm }
+    public enum M0Item { Empty = 0, Sword = 1, Sidearm = 2 }
     [Serializable] public struct InventorySlot
     {
         public M0Item Item;

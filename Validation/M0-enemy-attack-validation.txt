@@ -1,0 +1,35 @@
+PASS Random windup and high dash speed are within configured bounds
+PASS Enemy moves laterally during its charge instead of standing still
+PASS Randomized dash speed is applied to measured enemy displacement
+PASS Enemy turns during the dash to track the moving player
+PASS Enemy keeps moving during post-attack recovery
+TRACE dash=0 configured=26.3 measured=26.3 turn=11.9 travel=6.45
+PASS Dash speed and in-dash tracking were observed
+PASS Random windup and high dash speed are within configured bounds
+PASS Randomized dash speed is applied to measured enemy displacement
+PASS Enemy turns during the dash to track the moving player
+PASS Enemy keeps moving during post-attack recovery
+TRACE dash=1 configured=26.9 measured=26.9 turn=11.5 travel=6.51
+PASS Dash speed and in-dash tracking were observed
+PASS Random windup and high dash speed are within configured bounds
+PASS Randomized dash speed is applied to measured enemy displacement
+PASS Enemy turns during the dash to track the moving player
+PASS Enemy keeps moving during post-attack recovery
+TRACE dash=2 configured=31.2 measured=31.2 turn=9.8 travel=6.50
+PASS Dash speed and in-dash tracking were observed
+PASS Random windup and high dash speed are within configured bounds
+PASS Randomized dash speed is applied to measured enemy displacement
+PASS Enemy turns during the dash to track the moving player
+PASS Enemy keeps moving during post-attack recovery
+TRACE dash=3 configured=24.4 measured=24.4 turn=13.1 travel=6.54
+PASS Dash speed and in-dash tracking were observed
+PASS Windup duration varies between attacks
+PASS Dash speed varies between attacks
+PASS Rapidly moving player was hit during the tracked dash
+TRACE forced slam scenario started
+PASS Airborne strike re-locks toward the player's latest position
+PASS Airborne dive continues to face the moving player
+PASS Slam windup produces a substantial jump with visible horizontal travel
+PASS Enemy travels through an actual airborne dive while re-locking the moving player
+PASS Airborne slam damages the moving player
+RESULT: PASS; failures=0

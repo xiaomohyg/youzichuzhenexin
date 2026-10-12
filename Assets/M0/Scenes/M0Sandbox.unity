@@ -695,6 +695,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 120813355}
@@ -707,6 +708,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &6613308
 CharacterController:
   m_ObjectHideFlags: 0
@@ -1580,7 +1589,9 @@ MonoBehaviour:
   MeleeRange: 2.6
   LightDamage: 34
   HeavyDamage: 68
-  ShotDamage: 34
+  ShotDamage: 10
+  HeadshotDamage: 25
+  MagazineCapacity: 13
   DodgeDistance: 3.4
   DodgeDuration: 0.52
   Invulnerability: 0.28
@@ -1593,13 +1604,15 @@ MonoBehaviour:
   HitStop: 0.083
   WeakpointHitStop: 0.2
   HeavyKnockback: 2.6
-  ShotCooldown: 0.22
+  ShotCooldown: 0.7
   RecoilFov: 2.5
   CounterDuration: 0.64
   CounterMeleeRange: 9
   CounterRangedRange: 22
   CounterDamageMultiplier: 1.65
   CounterLungeDistance: 3.5
+  DodgeAttackWindow: 0.5
+  DodgeAttackDistance: 3.2
   View: {fileID: 194013301}
   WeaponRoot: {fileID: 736420158}
   Blade: {fileID: 676890827}
@@ -3971,6 +3984,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 34901290}
@@ -3983,6 +3997,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &51637949
 CharacterController:
   m_ObjectHideFlags: 0
@@ -6253,6 +6275,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 578474841}
@@ -6265,6 +6288,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &87092899
 CharacterController:
   m_ObjectHideFlags: 0
@@ -12529,6 +12560,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 977715625}
@@ -12541,6 +12573,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &190221628
 CharacterController:
   m_ObjectHideFlags: 0
@@ -15586,6 +15626,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1874017898}
@@ -15598,6 +15639,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &212550613
 CharacterController:
   m_ObjectHideFlags: 0
@@ -42971,6 +43020,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 541985384}
@@ -42983,6 +43033,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &582005814
 CharacterController:
   m_ObjectHideFlags: 0
@@ -48572,6 +48630,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 364067993}
@@ -48584,6 +48643,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &643328911
 CharacterController:
   m_ObjectHideFlags: 0
@@ -49809,6 +49876,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1973952038}
@@ -49821,6 +49889,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &660264309
 CharacterController:
   m_ObjectHideFlags: 0
@@ -51849,6 +51925,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 255368248}
@@ -51861,6 +51938,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &692909556
 CharacterController:
   m_ObjectHideFlags: 0
@@ -83609,6 +83694,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 829573553}
@@ -83621,6 +83707,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1161462218
 CharacterController:
   m_ObjectHideFlags: 0
@@ -85746,6 +85840,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1674827417}
@@ -85758,6 +85853,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1183023581
 CharacterController:
   m_ObjectHideFlags: 0
@@ -86933,6 +87036,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1865024293}
@@ -86945,6 +87049,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1196564415
 CharacterController:
   m_ObjectHideFlags: 0
@@ -114944,6 +115056,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 878588253}
@@ -114956,6 +115069,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1574428193
 CharacterController:
   m_ObjectHideFlags: 0
@@ -119790,6 +119911,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1572857700}
@@ -119802,6 +119924,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1630628244
 CharacterController:
   m_ObjectHideFlags: 0
@@ -123935,6 +124065,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 340666649}
@@ -123947,6 +124078,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1669152775
 CharacterController:
   m_ObjectHideFlags: 0
@@ -131961,6 +132100,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1678066959}
@@ -131973,6 +132113,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1757909345
 CharacterController:
   m_ObjectHideFlags: 0
@@ -133104,6 +133252,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 308598123}
@@ -133116,6 +133265,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1770381487
 CharacterController:
   m_ObjectHideFlags: 0
@@ -134751,6 +134908,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 487074427}
@@ -134763,6 +134921,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1789846519
 CharacterController:
   m_ObjectHideFlags: 0
@@ -139382,6 +139548,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1448853137}
@@ -139394,6 +139561,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1853780806
 CharacterController:
   m_ObjectHideFlags: 0
@@ -140265,6 +140440,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1505937140}
@@ -140277,6 +140453,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1872591986
 CharacterController:
   m_ObjectHideFlags: 0
@@ -144178,6 +144362,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 2023679606}
@@ -144190,6 +144375,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1930433514
 CharacterController:
   m_ObjectHideFlags: 0
@@ -144960,6 +145153,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1748456618}
@@ -144972,6 +145166,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1940666051
 CharacterController:
   m_ObjectHideFlags: 0
@@ -148454,6 +148656,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 819870955}
@@ -148466,6 +148669,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &1980670173
 CharacterController:
   m_ObjectHideFlags: 0
@@ -155061,6 +155272,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 854805347}
@@ -155073,6 +155285,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &2060977107
 CharacterController:
   m_ObjectHideFlags: 0
@@ -159349,6 +159569,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 315231735}
@@ -159361,6 +159582,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &2113963620
 CharacterController:
   m_ObjectHideFlags: 0
@@ -159648,6 +159877,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 1472704248}
@@ -159660,6 +159890,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!143 &2118983091
 CharacterController:
   m_ObjectHideFlags: 0

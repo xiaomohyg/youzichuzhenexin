@@ -1,0 +1,11 @@
+PASS Sidearm initializes with a 13-round magazine
+PASS A pistol headshot deals increased damage without killing a full-health enemy in one shot
+PASS Thirteen shots empty the magazine
+PASS Reload starts with the discard-magazine stage and no loaded rounds
+PASS Player can dodge during reload
+PASS Reload rig has visible magazine and slide pieces to animate
+PASS Dodging pauses reload and never grants ammo early
+PASS Switching to the blade interrupts and preserves the current reload action
+PASS Reload completes with a full 13-round magazine
+PASS Three active reload stages total 1.5 seconds; dodge and weapon-switch pauses are excluded
+RESULT: PASS; failures=0

@@ -1,0 +1,12 @@
+PASS Enemy locks and begins telegraph well outside the old melee range
+PASS Warning arc is visibly open while charging
+TRACE flash distance=0.67 phase=0.452
+PASS Warning arc closes into a bright flash at the strike cue
+PASS Enemy rushes forward between distant lock and strike flash
+PASS Blocking on the flash produces a live perfect block
+PASS Normal dodge starts without an enemy contact reward
+PASS Normal dodge opens only the 0.5 second free dash-attack window
+PASS Left-click replacement can start the free dash attack
+PASS Dodge attack rushes straight forward without target lock or auto-turning
+PASS Dodge dash attack completes cleanly
+RESULT: PASS; failures=0

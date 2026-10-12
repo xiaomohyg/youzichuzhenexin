@@ -3,20 +3,27 @@ using UnityEngine;
 
 namespace M0
 {
-    public enum EnemyState { Patrol, Chase, Windup, Recovery, Stagger, Dead, Attack }
+    public enum EnemyState { Patrol, Chase, Windup, Leap, Recovery, Stagger, Dead, Attack, Slam }
     [RequireComponent(typeof(CharacterController))]
     public sealed class M0Enemy : MonoBehaviour, ICombatTarget
     {
+        static readonly RaycastHit[] ObstructionHits = new RaycastHit[32];
         public int Id;
-        public float MaxHealth = 80, Speed = 1.8f, SenseRange = 16, AttackRange = 2.0f, Damage = 14, TelegraphTime = 0.62f;
+        public float MaxHealth = 80, Speed = 1.8f, SenseRange = 28, AttackRange = 2.0f, LockRange = 8.0f, Damage = 14, TelegraphTime = 0.62f;
         public Transform Head, LeftArm, RightArm;
         public Renderer BodyRenderer;
         public float HitStopDuration = 0.083f;
         public M0EnemyRig Rig;
         public float AttackDuration = 0.62f, DashDuration = 0.19f, DashSpeed = 4.8f, RecoveryDuration = 0.85f;
+        [Header("Attack Variation")]
+        public Vector2 WindupRange = new Vector2(0.65f, 1.2f), DashSpeedRange = new Vector2(24f, 32f);
+        [Range(0f, 1f)] public float SlamAttackChance = 0.68f;
+        public float LeapDuration = 0.58f, LeapHeight = 3.2f, LeapSpeed = 6.5f, SlamSpeed = 36f, SlamImpactRadius = 1.6f;
         public bool DodgeContactVerified { get; private set; }
         public Vector3 StrikePoint => Rig != null && Rig.StrikeShape != null ? Rig.StrikeShape.transform.position : transform.position + Vector3.up;
-        public bool StrikeActive => State == EnemyState.Attack && AttackPhase >= DashDuration / AttackDuration + 0.04f && AttackPhase <= 0.92f;
+        public bool StrikeActive => (State == EnemyState.Attack || State == EnemyState.Slam) && AttackPhase >= DashDuration / AttackDuration + 0.04f && AttackPhase <= 0.92f;
+        public bool AttackFlashActive => Rig != null && Rig.TelegraphFlashActive;
+        public float EffectiveLockRange => Mathf.Max(AttackRange, LockRange > 0.1f ? LockRange : 8f);
         public float AttackPhase => Mathf.Clamp01(1 - timer / Mathf.Max(0.01f, AttackDuration));
         public float Health { get; private set; }
         public bool Alive => gameObject.activeSelf && State != EnemyState.Dead;
@@ -31,11 +38,15 @@ namespace M0
         Quaternion[] restRotations;
         float timer, frozen, vertical, corpseAge, groundedTime;
         Vector3 spawn, knockVelocity, deathDirection, lastVelocity, planarVelocity, attackDirection;
-        float lostSight, attackCooldown, strafeSign;
+        float attackCooldown, strafeSign;
         float deathForce;
         MaterialPropertyBlock tint;
-        bool strikeResolved;
+        bool strikeResolved, attackCueFlashed;
+        bool slamAttack;
+        Vector3 initialLockPosition, slamLockPosition, leapDirection;
         Vector3 previousStrike, previousPlayer;
+        Vector3 observedPlayerPosition, playerVelocity;
+        bool hasObservedPlayer;
         Quaternion previousStrikeRotation;
         float previousPhase;
         void Awake() { Initialize(); }
@@ -59,26 +70,39 @@ namespace M0
         {
             Initialize();
             controller.enabled = false;
+            transform.SetPositionAndRotation(position, Quaternion.identity); spawn = position;
             for (int i = 0; i < bones.Length; i++)
             {
-                bones[i].isKinematic = true; bones[i].detectCollisions = true;
+                if (!bones[i].isKinematic)
+                {
+                    bones[i].linearVelocity = Vector3.zero; bones[i].angularVelocity = Vector3.zero;
+                    bones[i].isKinematic = true;
+                }
+                bones[i].detectCollisions = true;
                 bones[i].interpolation = RigidbodyInterpolation.None;
                 bones[i].transform.localPosition = restPositions[i]; bones[i].transform.localRotation = restRotations[i];
+                bones[i].position = bones[i].transform.position; bones[i].rotation = bones[i].transform.rotation;
                 boneColliders[i].enabled = i == 0 || bones[i].transform == Head;
             }
-            transform.SetPositionAndRotation(position, Quaternion.identity); spawn = position;
+            Physics.SyncTransforms();
             controller.enabled = true; gameObject.SetActive(true);
             Health = MaxHealth; State = EnemyState.Patrol; timer = 0.8f; frozen = vertical = corpseAge = groundedTime = 0;
             knockVelocity = lastVelocity = planarVelocity = Vector3.zero; attackDirection = transform.forward;
-            lostSight = attackCooldown = 0; strafeSign = Id % 2 == 0 ? 1 : -1;
+            attackCooldown = 0; strafeSign = Id % 2 == 0 ? 1 : -1;
+            observedPlayerPosition = M0Sandbox.Instance != null && M0Sandbox.Instance.Player != null
+                ? M0Sandbox.Instance.Player.transform.position : Vector3.zero;
+            playerVelocity = Vector3.zero; hasObservedPlayer = true;
             CorpseSettled = RagdollActive = false; SetTint(new Color(0.22f, 0.42f, 0.44f));
-            strikeResolved = false; DodgeContactVerified = false; Rig?.ResetPose();
+            strikeResolved = attackCueFlashed = slamAttack = false; DodgeContactVerified = false; Rig?.ResetPose();
         }
         void Update()
         {
             if (State == EnemyState.Dead) { Rig?.SetTelegraph(-1); UpdateCorpse(); return; }
             var player = M0Sandbox.Instance?.Player;
             if (player == null || player.Health <= 0) return;
+            if (hasObservedPlayer && Time.deltaTime > 0.0001f)
+                playerVelocity = Vector3.ClampMagnitude(Vector3.ProjectOnPlane((player.transform.position - observedPlayerPosition) / Time.deltaTime, Vector3.up), 12f);
+            observedPlayerPosition = player.transform.position; hasObservedPlayer = true;
             if (frozen > 0) { frozen -= Time.deltaTime; return; }
             timer -= Time.deltaTime; attackCooldown = Mathf.Max(0, attackCooldown - Time.deltaTime);
             if (State == EnemyState.Stagger)
@@ -93,67 +117,116 @@ namespace M0
             if (State == EnemyState.Windup)
             {
                 float phase = 1 - timer / Mathf.Max(0.01f, TelegraphTime);
-                if (phase < 0.58f && delta.sqrMagnitude > 0.001f)
+                if (phase < 0.72f && delta.sqrMagnitude > 0.001f)
                 {
-                    float tracking = Mathf.Lerp(150, 38, phase / 0.58f);
+                    float tracking = Mathf.Lerp(210, 62, phase / 0.72f);
                     TurnTowards(delta, tracking);
                     attackDirection = transform.forward;
                 }
-                Rig?.SetTelegraph(phase); Rig?.Present(State, phase, 0); MoveSteered(Vector3.zero, 8);
+                float weave = Mathf.Sin(Time.time * 5.3f + Id * 1.7f);
+                Vector3 windupDrift = transform.right * (strafeSign * 1.25f + weave * 0.35f);
+                Rig?.SetTelegraph(phase * 0.82f); Rig?.Present(State, phase, 0.55f); MoveSteered(windupDrift, 9);
                 if (timer <= 0)
                 {
-                    State = EnemyState.Attack; timer = AttackDuration; strikeResolved = false; previousPhase = 0;
-                    Rig.DashPhase = DashDuration / AttackDuration;
-                    attackDirection = transform.forward; planarVelocity = Vector3.zero;
-                    previousStrike = Rig.StrikeShape.transform.position; previousStrikeRotation = Rig.StrikeShape.transform.rotation;
-                    previousPlayer = player.transform.position;
+                    if (slamAttack)
+                    {
+                        initialLockPosition = player.transform.position;
+                        leapDirection = Vector3.ProjectOnPlane(initialLockPosition + playerVelocity * 0.22f - transform.position, Vector3.up).normalized;
+                        if (leapDirection.sqrMagnitude < 0.01f) leapDirection = transform.forward;
+                        State = EnemyState.Leap; timer = LeapDuration;
+                        vertical = Mathf.Sqrt(2f * 20f * LeapHeight);
+                        planarVelocity = leapDirection * LeapSpeed;
+                        M0Sandbox.Instance.Fx.PlayTone(360, 0.16f, 0.16f);
+                    }
+                    else BeginDash(player);
                 }
                 return;
             }
-            if (State == EnemyState.Attack)
+            if (State == EnemyState.Leap)
+            {
+                float phase = 1f - timer / Mathf.Max(0.01f, LeapDuration);
+                Rig?.Present(State, phase, 0);
+                Vector3 lockPosition = player.transform.position + playerVelocity * Mathf.Clamp(timer * 0.45f, 0.05f, 0.3f);
+                slamLockPosition = lockPosition;
+                attackDirection = Vector3.RotateTowards(attackDirection, (lockPosition - transform.position).normalized, 8f * Time.deltaTime, 0).normalized;
+                planarVelocity = Vector3.MoveTowards(planarVelocity, leapDirection * LeapSpeed, 12f * Time.deltaTime);
+                Move(planarVelocity);
+                if (timer <= 0)
+                {
+                    BeginSlam(player);
+                }
+                return;
+            }
+            if (State == EnemyState.Attack || State == EnemyState.Slam)
             {
                 float elapsed = AttackDuration - timer;
+                Rig.Present(State, AttackPhase, 0);
                 if (elapsed < DashDuration)
                 {
-                    Move(attackDirection * DashSpeed);
+                    if (State == EnemyState.Slam)
+                    {
+                        Vector3 target = player.transform.position + Vector3.up * 0.7f + playerVelocity * Mathf.Clamp(Vector3.Distance(transform.position, player.transform.position) / SlamSpeed, 0f, 0.22f);
+                        SteerAttack(target - transform.position, 9f);
+                        MoveDirect(attackDirection * SlamSpeed);
+                    }
+                    else
+                    {
+                        Vector3 target = player.transform.position + playerVelocity * Mathf.Clamp(Vector3.Distance(transform.position, player.transform.position) / DashSpeed, 0f, 0.32f);
+                        SteerAttack(Vector3.ProjectOnPlane(target - transform.position, Vector3.up), 13f);
+                        Move(attackDirection * DashSpeed);
+                    }
+                    Rig.SetTelegraph(Mathf.Lerp(0.82f, 0.995f, elapsed / Mathf.Max(0.01f, DashDuration)));
                 }
-                else MoveSteered(Vector3.zero, 32);
-                Rig.Present(State, AttackPhase, 0);
+                else
+                {
+                    if (State == EnemyState.Slam) MoveDirect(Vector3.zero);
+                    else MoveSteered(Vector3.zero, 32);
+                    if (!attackCueFlashed)
+                    {
+                        attackCueFlashed = true;
+                        Rig.FlashTelegraph();
+                        M0Sandbox.Instance.Fx.Sparks(StrikePoint, Color.white, 24, -attackDirection, 1.35f);
+                        M0Sandbox.Instance.Fx.PlayTone(1120, 0.10f, 0.22f);
+                    }
+                }
                 SweepStrike(player);
-                if (State == EnemyState.Attack && timer <= 0)
+                if (State == EnemyState.Slam && (elapsed >= DashDuration || controller.isGrounded) && !strikeResolved)
+                    ResolveSlamImpact(player);
+                if ((State == EnemyState.Attack || State == EnemyState.Slam) && timer <= 0)
                 { State = EnemyState.Recovery; timer = RecoveryDuration; attackCooldown = 0.38f; SetTint(new Color(0.22f, 0.42f, 0.44f)); }
                 return;
             }
             if (State == EnemyState.Recovery)
             {
                 float phase = 1 - timer / Mathf.Max(0.01f, RecoveryDuration);
-                Vector3 retreat = phase < 0.42f ? -attackDirection * 0.42f + transform.right * strafeSign * 0.22f : Vector3.zero;
+                Vector3 toPlayer = Vector3.ProjectOnPlane(player.transform.position - transform.position, Vector3.up).normalized;
+                Vector3 orbit = Vector3.Cross(Vector3.up, toPlayer) * strafeSign;
+                Vector3 retreat = -toPlayer * Mathf.Lerp(0.7f, 0.2f, phase) + orbit * Mathf.Lerp(1.2f, 0.85f, phase);
                 MoveSteered(retreat, 5); Rig?.Present(State, phase, planarVelocity.magnitude / Mathf.Max(0.1f, Speed));
                 if (timer <= 0) State = EnemyState.Chase; return;
             }
-            bool sensed = delta.magnitude < SenseRange && ClearPath(player);
+            bool sensed = delta.magnitude < Mathf.Max(SenseRange, 28f) && ClearPath(player);
             if (!sensed)
             {
-                lostSight += Time.deltaTime;
                 State = EnemyState.Patrol;
                 Vector3 goal = spawn + new Vector3(Mathf.Sin(Time.time * 0.3f + Id) * 1.6f, 0, Mathf.Cos(Time.time * 0.3f + Id) * 1.6f);
                 var patrol = goal - transform.position; patrol.y = 0;
                 TurnTowards(patrol, 85); MoveSteered(patrol.sqrMagnitude > 0.04f ? patrol.normalized * Speed * 0.32f : Vector3.zero, 2.5f);
                 Rig?.Present(State, 0, planarVelocity.magnitude / Mathf.Max(0.1f, Speed)); return;
             }
-            lostSight = 0;
             State = EnemyState.Chase;
             float distance = delta.magnitude;
-            if (delta.sqrMagnitude > 0.01f) TurnTowards(delta, distance < AttackRange * 1.4f ? 135 : 205);
+            float lockRange = EffectiveLockRange;
+            if (delta.sqrMagnitude > 0.01f) TurnTowards(delta, distance < lockRange * 1.4f ? 135 : 205);
             float facingAngle = delta.sqrMagnitude > 0.01f ? Vector3.Angle(transform.forward, delta) : 0;
-            if (distance <= AttackRange && facingAngle < 24 && attackCooldown <= 0)
+            if (distance <= lockRange && facingAngle < 24 && attackCooldown <= 0)
             {
-                float power = Random.Range(0f, 1f);
-                TelegraphTime = Mathf.Lerp(0.66f, 1.12f, power);
-                DashDuration = Random.Range(0.20f, 0.30f);
-                AttackDuration = DashDuration + Random.Range(0.34f, 0.48f);
-                DashSpeed = Mathf.Lerp(8.2f, 5.8f, power);
-                Damage = Mathf.Lerp(10f, 22f, power);
+                slamAttack = Random.value < SlamAttackChance;
+                TelegraphTime = Random.Range(WindupRange.x, WindupRange.y);
+                DashSpeed = Random.Range(DashSpeedRange.x, DashSpeedRange.y);
+                DashDuration = Random.Range(0.28f, 0.40f);
+                AttackDuration = DashDuration + Random.Range(0.38f, 0.52f);
+                Damage = Random.Range(12f, 21f);
                 State = EnemyState.Windup; timer = TelegraphTime; attackDirection = transform.forward;
                 planarVelocity *= 0.35f; M0Sandbox.Instance.Fx.PlayTone(210, 0.12f, 0.09f);
             }
@@ -170,12 +243,61 @@ namespace M0
                         separation += away.normalized * 0.7f;
                     }
                 }
-                float approach = Mathf.InverseLerp(AttackRange * 0.82f, AttackRange * 2.25f, distance);
-                Vector3 orbit = Vector3.Cross(Vector3.up, delta.normalized) * strafeSign * (distance < AttackRange * 1.35f ? 0.38f : 0.08f);
+                float approach = Mathf.InverseLerp(lockRange * 0.82f, lockRange * 2.25f, distance);
+                Vector3 orbit = Vector3.Cross(Vector3.up, delta.normalized) * strafeSign * (distance < lockRange * 1.35f ? 0.38f : 0.08f);
                 Vector3 desired = delta.normalized * (Speed * Mathf.Lerp(0.38f, 1, approach)) + orbit + separation;
                 MoveSteered(Vector3.ClampMagnitude(desired, Speed), 5.5f);
                 Rig?.Present(State, 0, planarVelocity.magnitude / Mathf.Max(0.1f, Speed));
             }
+        }
+        void BeginDash(M0Player player)
+        {
+            State = EnemyState.Attack;
+            Vector3 targetPosition = player.transform.position;
+            float initialDistance = Vector3.ProjectOnPlane(targetPosition - transform.position, Vector3.up).magnitude;
+            float predictionTime = Mathf.Clamp(initialDistance / Mathf.Max(0.1f, DashSpeed), 0f, 0.32f);
+            targetPosition += playerVelocity * predictionTime;
+            attackDirection = Vector3.ProjectOnPlane(targetPosition - transform.position, Vector3.up).normalized;
+            float distance = Vector3.ProjectOnPlane(targetPosition - transform.position, Vector3.up).magnitude;
+            float travelDistance = Mathf.Max(0, distance - 0.45f);
+            DashDuration = Mathf.Clamp(travelDistance / Mathf.Max(0.1f, DashSpeed), 0.08f, 0.72f);
+            AttackDuration = DashDuration + 0.12f;
+            timer = AttackDuration; strikeResolved = attackCueFlashed = false; previousPhase = 0;
+            attackDirection = attackDirection.sqrMagnitude > 0.01f ? attackDirection.normalized : transform.forward;
+            transform.rotation = Quaternion.LookRotation(attackDirection, Vector3.up);
+            planarVelocity = Vector3.zero;
+            Rig.DashPhase = DashDuration / AttackDuration;
+            previousStrike = Rig.StrikeShape.transform.position; previousStrikeRotation = Rig.StrikeShape.transform.rotation;
+            previousPlayer = player.transform.position;
+        }
+        void BeginSlam(M0Player player)
+        {
+            State = EnemyState.Slam;
+            Vector3 target = player.transform.position + Vector3.up * 0.7f;
+            slamLockPosition = target + playerVelocity * 0.12f;
+            attackDirection = (slamLockPosition - transform.position).normalized;
+            float distance = Vector3.Distance(transform.position, slamLockPosition);
+            DashDuration = Mathf.Clamp(distance / Mathf.Max(1f, SlamSpeed), 0.2f, 0.42f);
+            AttackDuration = DashDuration + 0.12f;
+            timer = AttackDuration; vertical = 0; strikeResolved = attackCueFlashed = false; previousPhase = 0;
+            transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(attackDirection, Vector3.up).normalized, Vector3.up);
+            Rig.DashPhase = DashDuration / AttackDuration;
+            previousStrike = Rig.StrikeShape.transform.position; previousStrikeRotation = Rig.StrikeShape.transform.rotation;
+            previousPlayer = player.transform.position;
+            M0Sandbox.Instance.Fx.PlayTone(520, 0.12f, 0.16f);
+        }
+        void SteerAttack(Vector3 desired, float turnRate)
+        {
+            if (desired.sqrMagnitude < 0.001f) return;
+            Vector3 next = Vector3.RotateTowards(attackDirection, desired.normalized, turnRate * Time.deltaTime, 0).normalized;
+            attackDirection = next.sqrMagnitude > 0.001f ? next : desired.normalized;
+            Vector3 facing = State == EnemyState.Slam ? Vector3.ProjectOnPlane(attackDirection, Vector3.up) : attackDirection;
+            if (facing.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(facing, Vector3.up);
+        }
+        void MoveDirect(Vector3 velocity)
+        {
+            lastVelocity = velocity;
+            controller.Move(velocity * Time.deltaTime);
         }
         void SweepStrike(M0Player player)
         {
@@ -189,7 +311,7 @@ namespace M0
             for (int i = 0; i <= samples && !strikeResolved; i++)
             {
                 float t = (float)i / samples, samplePhase = Mathf.Lerp(previousPhase, phase, t);
-                float strikeStart = DashDuration / AttackDuration + 0.04f;
+                float strikeStart = State == EnemyState.Slam ? 0.08f : DashDuration / AttackDuration + 0.04f;
                 if (samplePhase < strikeStart || samplePhase > 0.92f) continue;
                 Vector3 at = Vector3.Lerp(previousStrike, current, t);
                 Quaternion facing = Quaternion.Slerp(previousStrikeRotation, rotation, t);
@@ -208,6 +330,18 @@ namespace M0
             }
             previousStrike = current; previousStrikeRotation = rotation; previousPhase = phase; previousPlayer = player.transform.position;
         }
+        void ResolveSlamImpact(M0Player player)
+        {
+            Vector3 offset = player.transform.position - transform.position;
+            Vector3 planarOffset = Vector3.ProjectOnPlane(offset, Vector3.up);
+            if (planarOffset.sqrMagnitude > SlamImpactRadius * SlamImpactRadius || Mathf.Abs(offset.y) > 1.25f) return;
+            var capsule = player.GetComponent<CharacterController>();
+            if (SegmentBlocked(transform.position + Vector3.up * 0.35f, player.transform.position + capsule.center)) return;
+            strikeResolved = true;
+            Vector3 impact = transform.position + Vector3.up * 0.2f;
+            bool guarded = player.GuardIntersects(Rig.StrikeShape, Rig.StrikeShape.transform.position, Rig.StrikeShape.transform.rotation);
+            player.ReceiveAttack(Damage, this, guarded, impact);
+        }
         bool Obstructed(Vector3 weapon, Vector3 victim)
         {
             Vector3 shoulder = Rig.RightShoulder.position;
@@ -216,8 +350,10 @@ namespace M0
         bool SegmentBlocked(Vector3 a, Vector3 b)
         {
             Vector3 d = b - a;
-            foreach (var hit in Physics.RaycastAll(a, d.normalized, d.magnitude, ~(1 << 2), QueryTriggerInteraction.Ignore))
-                if (hit.collider.GetComponentInParent<M0Enemy>() != this) return true;
+            int count = Physics.RaycastNonAlloc(a, d.normalized, ObstructionHits, d.magnitude, ~(1 << 2), QueryTriggerInteraction.Ignore);
+            if (count == ObstructionHits.Length) return true;
+            for (int i = 0; i < count; i++)
+                if (ObstructionHits[i].collider.GetComponentInParent<M0Enemy>() != this) return true;
             return false;
         }
         bool ClearPath(M0Player player)

@@ -15,17 +15,26 @@ namespace M0
         public bool HeadBob;
         public float CrouchHeight = 1.15f, CrouchSpeed = 2.4f;
         [Header("Combat tuning")]
-        public float MeleeRange = 2.6f, LightDamage = 34, HeavyDamage = 68, ShotDamage = 34;
+        public float MeleeRange = 2.6f, LightDamage = 34, HeavyDamage = 68, ShotDamage = 10, HeadshotDamage = 25;
+        public int MagazineCapacity = 13;
         public float DodgeDistance = 3.4f, DodgeDuration = 0.52f, Invulnerability = 0.28f, DodgeCooldown = 0.85f;
         public float BlockWindup = 0, PerfectWindow = 0.16f, BlockReduction = 0.9f;
         public float LightRecovery = 0.46f, HeavyRecovery = 0.78f, HitStop = 0.083f, WeakpointHitStop = 0.2f;
-        public float HeavyKnockback = 2.6f, ShotCooldown = 0.22f, RecoilFov = 2.5f;
+        public float HeavyKnockback = 2.6f, ShotCooldown = 0.7f, RecoilFov = 2.5f;
         public float CounterDuration = 0.64f, CounterMeleeRange = 9, CounterRangedRange = 22, CounterDamageMultiplier = 1.65f, CounterLungeDistance = 3.5f;
+        public float DodgeAttackWindow = 0.5f, DodgeAttackDistance = 3.2f;
         public Camera View;
         public Transform WeaponRoot, Blade, Gun;
         public M0PlayerRig Rig;
         public float Health { get; private set; } = 100;
         public bool Ranged => M0Sandbox.Instance != null && M0Sandbox.Instance.Inventory.Equipped == M0Item.Sidearm;
+        public bool MeleeEquipped => Armed && !Ranged;
+        public int MagazineAmmo { get; private set; } = 13;
+        public bool Reloading => reloadStage >= 0;
+        public int ReloadStage => reloadStage;
+        public string ReloadStageName => reloadStage == 0 ? "抛弹匣" : reloadStage == 1 ? "装弹匣" : reloadStage == 2 ? "拉栓" : "";
+        public float ReloadStageProgress => reloadStage < 0 ? 0 : Mathf.Clamp01(reloadStageElapsed / ReloadStageDuration(reloadStage));
+        public float ReloadProgress => reloadStage < 0 ? 0 : (reloadStage switch { 0 => 0, 1 => 0.3f, _ => 0.67f }) + ReloadStageProgress * (reloadStage switch { 0 => 0.3f, 1 => 0.37f, _ => 0.33f });
         public bool Armed => M0Sandbox.Instance != null && M0Sandbox.Instance.Inventory.Equipped != M0Item.Empty;
         public bool Blocking { get; private set; }
         public bool ThirdPerson { get; private set; }
@@ -45,6 +54,8 @@ namespace M0
         public bool CounterRanged => counterRanged;
         public bool CounterDodge => counterFromDodge;
         public bool CounterQueued => counterQueued;
+        public bool DodgeDashAttacking => freeDodgeAttack;
+        public bool DodgeDashAvailable => !IsDodging && !freeDodgeAttack && !dodgeRewarded && Time.time <= dodgeAttackUntil;
         public bool MeleeSweepActive => meleeSweepActive;
         public int LastMeleeHitCount { get; private set; }
         public Bounds LastMeleeSweepBounds { get; private set; }
@@ -58,26 +69,35 @@ namespace M0
             ? Rig.Eyes.position
             : transform.position + Vector3.up * (controller.height - 0.26f);
         const int WorldMask = ~(1 << 2);
+        const int MeleeOverlapCapacity = 128;
+        const int WeaponPathCapacity = 64;
         CharacterController controller;
         float pitch, vertical, dodgeLeft, dodgeAge, nextDodge, blockStarted, recovery, windup;
-        float attackAnimation, attackLength, attackWindup, fovKick, shake, damageCooldown, counterUntil, bufferUntil, comboUntil;
+        float attackAnimation, attackLength, attackWindup, fovKick, shake, damageCooldown, counterUntil, bufferUntil, comboUntil, dodgeAttackUntil;
         float standingHeight;
+        int reloadStage = -1;
+        float reloadStageElapsed;
         Vector3 dodgeDirection;
         Vector3 counterDirection;
         float counterMoveDistance, counterTraveled;
         M0Enemy counterTarget, counterHint;
         BoxCollider bladeVolume;
+        readonly Collider[] meleeOverlapHits = new Collider[MeleeOverlapCapacity];
+        readonly RaycastHit[] weaponPathHits = new RaycastHit[WeaponPathCapacity];
+        static readonly IComparer<RaycastHit> WeaponHitOrder = new RaycastHitDistanceComparer();
         readonly HashSet<M0Enemy> meleeHitTargets = new HashSet<M0Enemy>();
         Vector3 previousBladeBase, previousBladeTip;
         bool meleeSweepActive, meleeSweepHeavy;
         Vector3 guardVelocity;
         float guardSpringVelocity;
-        bool dodgeRewarded, counterAttacking, counterRanged, counterResolved, counterQueued, counterQueuedHeavy, counterFromDodge;
+        bool dodgeRewarded, counterAttacking, counterRanged, counterResolved, counterQueued, counterQueuedHeavy, counterFromDodge, freeDodgeAttack;
         bool? blockOverride;
         int combo;
         bool pendingHeavy, pendingAttack, buffered, bufferedHeavy;
         M0Input Input => M0Sandbox.Instance.Input;
-        void Awake() { EnsureInitialized(); EnsureRigPresentation(); }
+        void Awake() { EnforceWeaponTuning(); EnsureInitialized(); EnsureRigPresentation(); }
+        void OnValidate() { EnforceWeaponTuning(); }
+        void EnforceWeaponTuning() { ShotDamage = 10; HeadshotDamage = 25; ShotCooldown = 0.7f; }
         void EnsureInitialized()
         {
             if (controller == null)
@@ -100,9 +120,10 @@ namespace M0
             controller.height = standingHeight; controller.center = Vector3.up * standingHeight * 0.5f; controller.enabled = true;
             EnsureRigPresentation();
             pitch = vertical = dodgeLeft = dodgeAge = shake = fovKick = 0;
-            nextDodge = damageCooldown = counterUntil = comboUntil = GuardImpact = 0;
+            nextDodge = damageCooldown = counterUntil = comboUntil = dodgeAttackUntil = GuardImpact = 0;
+            MagazineAmmo = MagazineCapacity; reloadStage = -1; reloadStageElapsed = 0;
             CancelAttack(); Blocking = Crouching = false; combo = 0; Health = 100;
-            guardVelocity = Vector3.zero; guardSpringVelocity = 0; dodgeRewarded = counterAttacking = counterQueued = counterFromDodge = false;
+            guardVelocity = Vector3.zero; guardSpringVelocity = 0; dodgeRewarded = counterAttacking = counterQueued = counterFromDodge = freeDodgeAttack = false;
             counterTarget = counterHint = null; counterMoveDistance = counterTraveled = 0;
             meleeSweepActive = false; meleeHitTargets.Clear(); LastMeleeHitCount = 0;
             blockOverride = null;
@@ -121,25 +142,28 @@ namespace M0
             }
             if (Input.Pressed(13)) TogglePerspective();
             if (Input.Pressed(10)) M0Sandbox.Instance.Inventory.CycleWeapon();
+            if (Input.Pressed(20) && Ranged) BeginReload();
             for (int i = 0; i < M0Inventory.HotbarSize; i++) if (Input.Pressed(15 + i)) M0Sandbox.Instance.Inventory.Select(i);
             if (mouse != null) M0Sandbox.Instance.Inventory.Scroll(mouse.scroll.ReadValue().y);
             if (Input.Pressed(6)) StartDodge(Input.Move);
-            bool block = Armed && !Ranged && !IsDodging && !counterAttacking && (blockOverride ?? Input.Held(8));
+            bool block = MeleeEquipped && !IsDodging && !counterAttacking && (blockOverride ?? Input.Held(8));
             if (block && !Blocking) { blockStarted = Time.time; CancelAttack(); }
             Blocking = block;
             float actionDelta = counterAttacking ? Time.unscaledDeltaTime : Time.deltaTime;
             recovery = Mathf.Max(0, recovery - actionDelta);
             attackAnimation = Mathf.Max(0, attackAnimation - actionDelta);
+            UpdateReload();
             bool attackPressed = Input.Pressed(7) || Input.Pressed(9);
             bool heavyPressed = Input.Pressed(9);
+            bool dodgeAttackStarted = false;
             if (counterAttacking)
             {
                 UpdateCounterAssist();
                 float strikePoint = counterRanged ? 0.44f : 0.58f;
                 if (!counterResolved && CounterProgress >= strikePoint) ResolveCounter();
-                if (attackAnimation <= 0) { counterAttacking = false; counterTarget = null; recovery = Mathf.Min(recovery, 0.12f); }
+                if (attackAnimation <= 0) { counterAttacking = freeDodgeAttack = false; counterTarget = null; recovery = Mathf.Min(recovery, 0.12f); }
             }
-            if (Armed && CounterReady && attackPressed && !counterAttacking)
+            if ((Ranged || MeleeEquipped) && CounterReady && attackPressed && !counterAttacking)
             {
                 if (IsDodging)
                 {
@@ -156,18 +180,21 @@ namespace M0
                 }
                 else if (recovery <= 0 && StartCounter(Ranged, heavyPressed)) Blocking = false;
             }
+            if (MeleeEquipped && Input.Pressed(7) && DodgeDashAvailable && !counterAttacking && !Blocking)
+                dodgeAttackStarted = TryStartDodgeDashAttack();
             if (counterQueued && !CounterReady) counterQueued = false;
-            if (Armed && counterQueued && !IsDodging && !counterAttacking && recovery <= 0 && CounterReady)
+            if ((Ranged || MeleeEquipped) && counterQueued && !IsDodging && !counterAttacking && recovery <= 0 && CounterReady)
             {
                 bool queuedHeavy = counterQueuedHeavy; counterQueued = false;
                 if (StartCounter(Ranged, queuedHeavy)) Blocking = false;
             }
-            if (Armed && !Ranged && !Blocking && !IsDodging && !counterAttacking && (Input.Pressed(7) || Input.Pressed(9)))
+            if (MeleeEquipped && !Blocking && !IsDodging && !counterAttacking && !dodgeAttackStarted && (Input.Pressed(7) || Input.Pressed(9)))
             { buffered = true; bufferedHeavy = Input.Pressed(9); bufferUntil = Time.time + 0.2f; }
             if (!Blocking && !IsDodging && !counterAttacking && recovery <= 0 && Armed)
             {
-                if (Ranged && Input.Held(7)) Shoot();
-                else if (!Ranged && buffered && Time.time <= bufferUntil) StartMelee(bufferedHeavy);
+                if (Ranged && !Reloading && MagazineAmmo == 0 && Input.Held(7)) BeginReload();
+                else if (Ranged && !Reloading && Input.Held(7)) Shoot();
+                else if (MeleeEquipped && buffered && Time.time <= bufferUntil) StartMelee(bufferedHeavy);
             }
             if (pendingAttack)
             {
@@ -255,7 +282,7 @@ namespace M0
         }
         void CancelAttack()
         {
-            pendingAttack = buffered = false; counterAttacking = false; counterTarget = null;
+            pendingAttack = buffered = false; counterAttacking = freeDodgeAttack = false; counterTarget = null;
             counterMoveDistance = counterTraveled = 0; windup = recovery = attackAnimation = 0;
             meleeSweepActive = false; meleeHitTargets.Clear();
         }
@@ -266,6 +293,7 @@ namespace M0
             dodgeLeft = DodgeDuration; dodgeAge = 0; nextDodge = Time.time + DodgeCooldown;
             DodgeOrigin = transform.position; dodgeRewarded = false;
             CancelAttack(); Blocking = false; M0Sandbox.Instance.Fx.PlayTone(280, 0.1f, 0.13f);
+            dodgeAttackUntil = Time.time + DodgeDuration + Mathf.Max(0.05f, DodgeAttackWindow);
             return true;
         }
         // Optional external control is also used by deterministic combat validation; player input remains the default.
@@ -285,6 +313,20 @@ namespace M0
             recovery = heavy ? HeavyRecovery : LightRecovery + (combo == 3 ? 0.08f : 0);
             attackLength = attackAnimation = Mathf.Max(recovery, windup + 0.16f); comboUntil = Time.time + recovery + 0.65f;
             M0Sandbox.Instance.Fx.PlayTone(heavy ? 170 : 350, 0.14f, 0.16f);
+        }
+        public bool TryStartDodgeDashAttack()
+        {
+            if (!MeleeEquipped || IsDodging || freeDodgeAttack || dodgeRewarded || Time.time > dodgeAttackUntil || recovery > 0) return false;
+            counterAttacking = freeDodgeAttack = true; counterRanged = false; counterResolved = false;
+            counterTarget = counterHint = null; counterFromDodge = true; counterUntil = 0;
+            pendingAttack = buffered = counterQueued = false;
+            counterDirection = transform.forward;
+            counterMoveDistance = Mathf.Max(0.5f, DodgeAttackDistance); counterTraveled = 0;
+            attackLength = attackAnimation = Mathf.Min(CounterDuration, 0.56f); attackWindup = attackLength * 0.58f;
+            pendingHeavy = false; recovery = CounterDuration + 0.08f;
+            M0Sandbox.Instance.Fx.PlayTone(300, 0.13f, 0.2f);
+            M0Sandbox.Instance.ShowMessage("闪避冲刺攻击");
+            return true;
         }
         void Aim(out Vector3 origin, out Vector3 direction)
         {
@@ -350,11 +392,20 @@ namespace M0
         void ResolveCounter()
         {
             counterResolved = true;
+            if (freeDodgeAttack)
+            {
+                Melee(false);
+                M0Sandbox.Instance.Fx.Sparks(transform.position + transform.forward * 1.15f + Vector3.up * 1.1f,
+                    new Color(1, 0.72f, 0.22f), 18, transform.forward, 1.1f);
+                M0Sandbox.Instance.Fx.PlayTone(760, 0.14f, 0.24f);
+                M0Sandbox.Instance.ShowMessage("闪避冲刺命中");
+                return;
+            }
             if (counterTarget == null || !counterTarget.Alive) return;
             Vector3 origin = View.transform.position;
             Vector3 aimPoint = counterTarget.Head.position;
             Vector3 direction = (aimPoint - origin).normalized;
-            bool weak = false;
+            bool headshot = false;
             if (counterRanged)
             {
                 recovery = Mathf.Max(recovery, ShotCooldown + 0.25f); fovKick = RecoilFov * 1.8f;
@@ -364,10 +415,10 @@ namespace M0
                     end = hit.point;
                     var hitTarget = hit.collider.GetComponentInParent<M0Enemy>();
                     if (hitTarget != counterTarget) { counterTarget = null; return; }
-                    weak = hit.collider.transform == counterTarget.Head;
+                    headshot = hit.collider.transform == counterTarget.Head;
                 }
                 counterTarget.HitStopDuration = WeakpointHitStop;
-                counterTarget.ApplyHit(ShotDamage * CounterDamageMultiplier, weak, direction, 2.2f);
+                counterTarget.ApplyHit(headshot ? HeadshotDamage : ShotDamage, false, direction, 2.2f);
                 M0Sandbox.Instance.Fx.Tracer(Gun.position + Gun.forward * 0.35f, end);
                 M0Sandbox.Instance.Fx.Sparks(end, new Color(0.4f, 0.95f, 1), 28, -direction, 1.25f);
                 M0Sandbox.Instance.Fx.PlayTone(1180, 0.18f, 0.3f);
@@ -417,8 +468,11 @@ namespace M0
                 Vector3 bladeTip = Vector3.Lerp(previousBladeTip, currentTip, t);
                 var sweepBounds = LastMeleeSweepBounds; sweepBounds.Encapsulate(bladeBase); sweepBounds.Encapsulate(bladeTip);
                 LastMeleeSweepBounds = sweepBounds;
-                foreach (var hit in Physics.OverlapCapsule(bladeBase, bladeTip, radius, WorldMask, QueryTriggerInteraction.Collide))
+                int hitCount = Physics.OverlapCapsuleNonAlloc(bladeBase, bladeTip, radius, meleeOverlapHits, WorldMask, QueryTriggerInteraction.Collide);
+                for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
                 {
+                    var hit = meleeOverlapHits[hitIndex];
+                    if (hit == null) continue;
                     var enemy = hit.GetComponentInParent<M0Enemy>();
                     if (enemy == null || !enemy.Alive || meleeHitTargets.Contains(enemy) || !WeaponPathClear(bladeBase, hit.bounds.center, enemy)) continue;
                     bool weak = hit.transform == enemy.Head;
@@ -435,15 +489,21 @@ namespace M0
         {
             Vector3 delta = to - from;
             if (delta.sqrMagnitude < 0.001f) return true;
-            var hits = Physics.RaycastAll(from, delta.normalized, delta.magnitude + 0.05f, WorldMask, QueryTriggerInteraction.Ignore);
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-            foreach (var hit in hits)
+            int hitCount = Physics.RaycastNonAlloc(from, delta.normalized, weaponPathHits, delta.magnitude + 0.05f, WorldMask, QueryTriggerInteraction.Ignore);
+            if (hitCount == weaponPathHits.Length) return false;
+            System.Array.Sort(weaponPathHits, 0, hitCount, WeaponHitOrder);
+            for (int i = 0; i < hitCount; i++)
             {
+                var hit = weaponPathHits[i];
                 var enemy = hit.collider.GetComponentInParent<M0Enemy>();
                 if (enemy == target) return true;
                 if (enemy == null) return false;
             }
             return true;
+        }
+        sealed class RaycastHitDistanceComparer : IComparer<RaycastHit>
+        {
+            public int Compare(RaycastHit a, RaycastHit b) { return a.distance.CompareTo(b.distance); }
         }
         public bool GuardIntersects(BoxCollider attackShape, Vector3 attackPosition, Quaternion attackRotation)
         {
@@ -454,6 +514,8 @@ namespace M0
         }
         public void Shoot()
         {
+            if (!Ranged || Reloading || MagazineAmmo <= 0 || IsDodging) return;
+            MagazineAmmo--;
             recovery = ShotCooldown; fovKick = RecoilFov;
             M0Sandbox.Instance.Fx.PlayTone(90, 0.1f, 0.22f);
             Aim(out var origin, out var direction); Vector3 end = origin + direction * 55;
@@ -462,13 +524,40 @@ namespace M0
                 end = hit.point; var target = hit.collider.GetComponentInParent<M0Enemy>();
                 if (target != null && target.Alive)
                 {
-                    bool weak = hit.collider.transform == target.Head; target.HitStopDuration = weak ? WeakpointHitStop : HitStop;
-                    target.ApplyHit(ShotDamage, weak, direction, weak ? 3.6f : 0.45f);
+                    target.HitStopDuration = HitStop;
+                    float damage = hit.collider.transform == target.Head ? HeadshotDamage : ShotDamage;
+                    target.ApplyHit(damage, false, direction, 0.45f);
                 }
                 else M0Sandbox.Instance.Fx.Sparks(hit.point, Color.gray, 5);
             }
             M0Sandbox.Instance.Fx.Tracer(Gun.position + Gun.forward * 0.35f, end);
         }
+        void BeginReload()
+        {
+            if (reloadStage >= 0 || MagazineAmmo >= MagazineCapacity || Health <= 0) return;
+            MagazineAmmo = 0;
+            reloadStage = 0; reloadStageElapsed = 0;
+            recovery = 0;
+        }
+        public void RequestReload() { if (Ranged) BeginReload(); }
+        void UpdateReload()
+        {
+            if (reloadStage < 0) return;
+            if (!Ranged || IsDodging || Health <= 0) return;
+            reloadStageElapsed += Time.deltaTime;
+            while (reloadStage >= 0 && reloadStageElapsed >= ReloadStageDuration(reloadStage))
+            {
+                reloadStageElapsed -= ReloadStageDuration(reloadStage);
+                reloadStage++;
+                if (reloadStage >= 3)
+                {
+                    reloadStage = -1; reloadStageElapsed = 0;
+                    MagazineAmmo = MagazineCapacity;
+                    break;
+                }
+            }
+        }
+        static float ReloadStageDuration(int stage) => stage == 0 ? 0.45f : stage == 1 ? 0.55f : 0.50f;
         public DamageResult ReceiveAttack(float damage, M0Enemy attacker, bool? weaponGuardContact = null, Vector3? contactPoint = null)
         {
             if (Health <= 0 || (Time.time < damageCooldown && !InvulnerableNow)) return new DamageResult(0, HitKind.Evade, false);
@@ -489,7 +578,7 @@ namespace M0
                 shake = Mathf.Max(shake, perfect ? 1.65f : 0.72f);
                 M0Sandbox.Instance.Fx.PlayTone(result.Kind == HitKind.PerfectBlock ? 880 : 420, 0.12f, 0.22f);
             }
-            if (result.Kind == HitKind.PerfectBlock) { attacker.Stagger(1.1f); counterFromDodge = false; counterUntil = Time.time + 1.2f; }
+            if (result.Kind == HitKind.PerfectBlock) { attacker.Stagger(1.1f); counterFromDodge = false; dodgeAttackUntil = 0; counterUntil = Time.time + 1.2f; }
             if (result.Kind == HitKind.Evade && InvulnerableNow) RewardDodge(attacker);
             if (result.Damage > 0) { shake = 0.5f; M0Sandbox.Instance.Fx.PlayerHurt(); }
             M0Sandbox.Instance.ShowMessage(result.Kind == HitKind.PerfectBlock ? "完美格挡 · 反击就绪" : result.Kind == HitKind.Block ? "格挡 · 90% 减伤" : result.Kind == HitKind.Evade ? "极限闪避 · 反击就绪" : "受击 -" + result.Damage.ToString("0"));
@@ -505,6 +594,7 @@ namespace M0
         {
             if (dodgeRewarded) return;
             dodgeRewarded = true;
+            dodgeAttackUntil = 0;
             counterFromDodge = true;
             counterHint = attacker;
             counterUntil = Time.time + 1.2f;
@@ -514,4 +604,5 @@ namespace M0
         }
         public void OnCombatFeedback(CombatFeedback hit) { shake = hit.Kind == HitKind.Weakpoint ? 0.85f : 0.45f; }
     }
+
 }

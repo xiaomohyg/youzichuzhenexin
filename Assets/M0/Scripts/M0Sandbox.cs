@@ -250,11 +250,20 @@ namespace M0
                 if (Time.time < messageUntil) Text(cx - 230, cy + 42, 460, message, centered);
                 RectColor(new Rect(16, height - 143, width - 32, 62), new Color(0.02f, 0.05f, 0.08f, 0.82f));
                 Text(24, height - 140, width - 48, "[" + Input.Label(0) + "/" + Input.Label(1) + "/" + Input.Label(2) + "/" + Input.Label(3) + "] 移动    [" + Input.Label(4) + "] 奔跑    [" + Input.Label(5) + "] 跳跃    [" + Input.Label(6) + "] 闪避    [" + Input.Label(12) + "] 下蹲    [" + Input.Label(13) + "] 视角", small);
-                Text(24, height - 113, width - 48, "[" + Input.Label(7) + "] 攻击    [" + Input.Label(8) + "] 格挡    [" + Input.Label(9) + "] 重击    [" + Input.Label(10) + "] 换武器    [" + Input.Label(14) + "] 物品栏    滚轮 / 数字键：选物品    [" + Input.Label(11) + "] 重置", small);
+                Text(24, height - 113, width - 48, "[" + Input.Label(7) + "] 攻击    [" + Input.Label(8) + "] 格挡    [" + Input.Label(9) + "] 重击    [" + Input.Label(10) + "] 换武器    [" + Input.Label(20) + "] 手枪换弹    [" + Input.Label(14) + "] 物品栏    [" + Input.Label(11) + "] 重置", small);
                 DrawHotbar(width, height);
                 Text(24, height - 70, 430, (Player.ThirdPerson ? "第三人称" : "第一人称") + (Player.Crouching ? " · 下蹲" : "") + (Player.CounterReady ? " · 反击就绪" : "") + (Player.Blocking ? " · 格挡" : ""), small);
                 Text(width - 220, height - 70, 200, "闪避 " + (Player.DodgeReady >= 1 ? "就绪" : "冷却"), small);
                 RectColor(new Rect(width - 220, height - 38, 190 * Player.DodgeReady, 4), new Color(0.3f, 0.8f, 1));
+                if (Player.Ranged)
+                {
+                    Text(width - 220, height - 104, 200, "弹药  " + Player.MagazineAmmo + "/" + Player.MagazineCapacity + (Player.Reloading ? "  " + Player.ReloadStageName : ""), small);
+                    if (Player.Reloading)
+                    {
+                        RectColor(new Rect(width - 220, height - 82, 190, 5), new Color(0.08f, 0.10f, 0.12f, 0.9f));
+                        RectColor(new Rect(width - 220, height - 82, 190 * Player.ReloadProgress, 5), new Color(1f, 0.68f, 0.18f));
+                    }
+                }
                 Fx.DrawNumbers(Player.View, centered, scale);
                 if (Fx.HurtOverlay > 0) RectColor(new Rect(0, 0, width, height), new Color(0.8f, 0.04f, 0.02f, Fx.HurtOverlay * 0.5f));
             }

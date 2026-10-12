@@ -7,8 +7,8 @@ namespace M0
     // One action per direction lets keyboard movement be rebound without breaking a composite.
     public sealed class M0Input : IDisposable
     {
-        public static readonly string[] Names = { "前进", "后退", "向左", "向右", "奔跑", "跳跃", "闪避", "普通攻击 / 射击", "格挡", "重击", "切换武器", "重置沙盒", "下蹲（按住）", "第一 / 第三人称", "物品栏", "快捷栏 1", "快捷栏 2", "快捷栏 3", "快捷栏 4", "快捷栏 5" };
-        public static readonly string[] Defaults = { "<Keyboard>/w", "<Keyboard>/s", "<Keyboard>/a", "<Keyboard>/d", "<Keyboard>/leftShift", "<Keyboard>/space", "<Keyboard>/q", "<Mouse>/leftButton", "<Mouse>/rightButton", "<Keyboard>/e", "<Keyboard>/tab", "<Keyboard>/r", "<Keyboard>/leftCtrl", "<Keyboard>/v", "<Keyboard>/i", "<Keyboard>/1", "<Keyboard>/2", "<Keyboard>/3", "<Keyboard>/4", "<Keyboard>/5" };
+        public static readonly string[] Names = { "前进", "后退", "向左", "向右", "奔跑", "跳跃", "闪避", "普通攻击 / 射击", "格挡", "重击", "切换武器", "重置沙盒", "下蹲（按住）", "第一 / 第三人称", "物品栏", "快捷栏 1", "快捷栏 2", "快捷栏 3", "快捷栏 4", "快捷栏 5", "手枪换弹" };
+        public static readonly string[] Defaults = { "<Keyboard>/w", "<Keyboard>/s", "<Keyboard>/a", "<Keyboard>/d", "<Keyboard>/leftShift", "<Keyboard>/space", "<Keyboard>/q", "<Mouse>/leftButton", "<Mouse>/rightButton", "<Keyboard>/e", "<Keyboard>/tab", "<Keyboard>/f10", "<Keyboard>/leftCtrl", "<Keyboard>/v", "<Keyboard>/i", "<Keyboard>/1", "<Keyboard>/2", "<Keyboard>/3", "<Keyboard>/4", "<Keyboard>/5", "<Keyboard>/r" };
         const string SaveKey = "M0.Bindings.v1";
         [Serializable] class Saved { public string[] paths; }
         readonly InputAction[] actions = new InputAction[Defaults.Length];
@@ -26,6 +26,12 @@ namespace M0
                 if (saved?.paths != null)
                     for (int i = 0; i < Mathf.Min(saved.paths.Length, actions.Length); i++)
                         if (Allowed(saved.paths[i])) actions[i].ApplyBindingOverride(saved.paths[i]);
+                if (saved?.paths != null && saved.paths.Length <= 20 &&
+                    string.Equals(Path(11), "<Keyboard>/r", StringComparison.OrdinalIgnoreCase))
+                {
+                    actions[11].ApplyBindingOverride("<Keyboard>/f10");
+                    actions[20].ApplyBindingOverride("<Keyboard>/r");
+                }
                 if (saved?.paths != null)
                     for (int i = saved.paths.Length; i < actions.Length; i++)
                         for (int j = 0; j < i; j++)

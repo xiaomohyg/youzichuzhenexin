@@ -2,11 +2,13 @@ PASS Perfect block opens immediately on guard input
 PASS Holding guard transitions to normal 90 percent mitigation
 PASS Expanded sword guard volume and dodge contact window are active
 PASS Default dodge travels backward
-PASS First-person camera sits at the eye marker while body and left hand are hidden
+PASS First-person shows the eye-anchored head, torso, legs and hanging left arm without a screen-space left hand
+PASS First and third person weapon wrist follows the same animated arm bone
 PASS Windup cannot damage player
-PASS Windup enables the standalone ground warning ring
+PASS Windup enables the standalone warning ring
+PASS Warning ring is centered on the enemy with its vertical face aimed at the player
 PASS Windup no longer tints the enemy body red
-PASS Random enemy windup, dash and strike stay bounded with heavy/slow and light/fast variants
+PASS Random enemy windup, dash speed, travel time and strike stay within their configured ranges
 PASS Actual animated gauntlet contacts player and causes exactly one attack-specific hit
 PASS Damage volume extends beyond the visible gauntlet for reliable contact
 PASS Recovery and persistent model overlap do not repeat damage

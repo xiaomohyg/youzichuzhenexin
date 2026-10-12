@@ -76,7 +76,7 @@ namespace M0.Editor
                 joint.anchor = anchor; joint.connectedAnchor = joint.connectedBody.transform.InverseTransformPoint(bone.transform.TransformPoint(anchor));
             }
             rig.TelegraphRing = BuildTelegraphRing(enemy.transform);
-            enemy.AttackRange = 2.0f; EditorUtility.SetDirty(enemy);
+            enemy.SenseRange = 28f; enemy.AttackRange = 2.0f; enemy.LockRange = 8.0f; EditorUtility.SetDirty(enemy);
         }
         static void Prepare(Transform bone, Vector3 at, Vector3 size, Vector3 center)
         {
@@ -136,7 +136,7 @@ namespace M0.Editor
             go.transform.SetParent(enemy, false);
             go.transform.localPosition = new Vector3(0, 1.05f, 0);
             var line = go.AddComponent<LineRenderer>();
-            line.useWorldSpace = false; line.loop = true; line.positionCount = 65;
+            line.useWorldSpace = false; line.loop = false; line.positionCount = 65;
             line.sharedMaterial = cueMaterial; line.startWidth = line.endWidth = 0.06f;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; line.receiveShadows = false;
             line.sortingOrder = 5; line.enabled = false;

@@ -3238,6 +3238,7 @@ MonoBehaviour:
   Speed: 1.8
   SenseRange: 16
   AttackRange: 2
+  LockRange: 8
   Damage: 14
   TelegraphTime: 0.62
   Head: {fileID: 3262175064382161192}
@@ -3250,6 +3251,14 @@ MonoBehaviour:
   DashDuration: 0.19
   DashSpeed: 4.8
   RecoveryDuration: 0.85
+  WindupRange: {x: 0.65, y: 1.2}
+  DashSpeedRange: {x: 24, y: 32}
+  SlamAttackChance: 0.68
+  LeapDuration: 0.58
+  LeapHeight: 3.2
+  LeapSpeed: 6.5
+  SlamSpeed: 36
+  SlamImpactRadius: 1.6
 --- !u!114 &5354039040149498199
 MonoBehaviour:
   m_ObjectHideFlags: 0

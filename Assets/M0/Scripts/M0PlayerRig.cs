@@ -12,6 +12,10 @@ namespace M0
         public Transform LeftKnee, RightKnee;
         public TrailRenderer SwordTrail;
         public Transform BodySword, BodyGun;
+        Transform reloadMagazine, reloadSlide;
+        Vector3 gunRestPosition, magazineRestPosition, slideRestPosition;
+        Quaternion gunRestRotation;
+        bool reloadPartsReady;
         Renderer[] firstPersonRenderers;
         Renderer[] bodyRenderers;
         readonly Dictionary<Renderer, ShadowCastingMode> originalShadowModes = new Dictionary<Renderer, ShadowCastingMode>();
@@ -44,7 +48,7 @@ namespace M0
             LeftHand.gameObject.SetActive(false);
             LeftUpper.gameObject.SetActive(false);
             LeftForearm.gameObject.SetActive(false);
-            BodySword.gameObject.SetActive(p.ThirdPerson && p.Armed && !p.Ranged);
+            BodySword.gameObject.SetActive(p.ThirdPerson && p.MeleeEquipped);
             BodyGun.gameObject.SetActive(p.ThirdPerson && p.Ranged);
             Root.SetPositionAndRotation(p.ThirdPerson ? p.EyePosition : p.View.transform.position,
                 p.ThirdPerson ? p.transform.rotation * Quaternion.Euler(p.LookAngles.y * 0.4f, 0, 0) : p.View.transform.rotation);
@@ -58,11 +62,80 @@ namespace M0
             Vector3 wrist = Root.InverseTransformPoint(RightHand.position);
             Segment(RightUpper, shoulder, elbow, 0.17f);
             Segment(RightForearm, elbow, wrist, 0.14f);
-            p.Blade.gameObject.SetActive(p.Armed && !p.Ranged); p.Gun.gameObject.SetActive(p.Ranged);
-            bool trail = p.Armed && !p.Ranged && p.Attacking && p.AttackProgress >= p.StrikePhase && p.AttackProgress < p.StrikePhase + 0.24f;
+            p.Blade.gameObject.SetActive(p.MeleeEquipped); p.Gun.gameObject.SetActive(p.Ranged);
+            PresentReload(p);
+            bool trail = p.MeleeEquipped && p.Attacking && p.AttackProgress >= p.StrikePhase && p.AttackProgress < p.StrikePhase + 0.24f;
             SwordTrail.emitting = trail;
-            if (!p.Armed || p.Ranged || !p.Attacking) SwordTrail.Clear();
+            if (!p.MeleeEquipped || !p.Attacking) SwordTrail.Clear();
             p.SampleMeleeSweep();
+        }
+        void PresentReload(M0Player p)
+        {
+            if (!reloadPartsReady) BuildReloadParts(p.Gun);
+            if (reloadMagazine == null || reloadSlide == null) return;
+            float phase = p.ReloadStageProgress;
+            bool active = p.Ranged && p.Reloading;
+            p.Gun.localPosition = gunRestPosition;
+            p.Gun.localRotation = gunRestRotation;
+            reloadMagazine.gameObject.SetActive(!active || p.ReloadStage < 2);
+            reloadMagazine.localPosition = magazineRestPosition;
+            reloadMagazine.localRotation = Quaternion.identity;
+            reloadSlide.localPosition = slideRestPosition;
+            if (!active) return;
+            if (p.ReloadStage == 0)
+            {
+                p.Gun.localRotation = gunRestRotation * Quaternion.Euler(0, 0, Mathf.Lerp(0, -14, phase));
+                reloadMagazine.localPosition = magazineRestPosition + Vector3.down * (0.28f * phase);
+                reloadMagazine.localRotation = Quaternion.Euler(0, 0, -18 * phase);
+            }
+            else if (p.ReloadStage == 1)
+            {
+                p.Gun.localRotation = gunRestRotation * Quaternion.Euler(0, 0, Mathf.Lerp(-14, 0, phase));
+                reloadMagazine.localPosition = magazineRestPosition + Vector3.down * (0.28f * (1 - phase));
+            }
+            else
+            {
+                float rack = phase < 0.45f ? phase / 0.45f : 1 - (phase - 0.45f) / 0.55f;
+                reloadSlide.localPosition = slideRestPosition - Vector3.forward * (0.17f * Mathf.Clamp01(rack));
+                p.Gun.localRotation = gunRestRotation * Quaternion.Euler(Mathf.Sin(phase * Mathf.PI) * -3, 0, 0);
+            }
+        }
+        void BuildReloadParts(Transform gun)
+        {
+            reloadPartsReady = true;
+            if (gun == null) return;
+            gunRestPosition = gun.localPosition; gunRestRotation = gun.localRotation;
+            reloadMagazine = gun.Find("Reload magazine");
+            reloadSlide = gun.Find("Slide");
+            Renderer source = gun.GetComponentInChildren<Renderer>(true);
+            if (reloadMagazine == null)
+            {
+                var mag = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                mag.name = "Reload magazine"; mag.layer = gun.gameObject.layer;
+                mag.transform.SetParent(gun, false);
+                mag.transform.localPosition = new Vector3(0, -0.045f, 0.10f);
+                mag.transform.localScale = new Vector3(0.075f, 0.15f, 0.10f);
+                var collider = mag.GetComponent<Collider>();
+                if (collider != null) Destroy(collider);
+                var renderer = mag.GetComponent<Renderer>();
+                if (source != null) renderer.sharedMaterial = source.sharedMaterial;
+                reloadMagazine = mag.transform;
+            }
+            if (reloadSlide == null)
+            {
+                var slide = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                slide.name = "Reload slide"; slide.layer = gun.gameObject.layer;
+                slide.transform.SetParent(gun, false);
+                slide.transform.localPosition = new Vector3(0, 0.18f, 0.13f);
+                slide.transform.localScale = new Vector3(0.12f, 0.06f, 0.36f);
+                var collider = slide.GetComponent<Collider>();
+                if (collider != null) Destroy(collider);
+                var renderer = slide.GetComponent<Renderer>();
+                if (source != null) renderer.sharedMaterial = source.sharedMaterial;
+                reloadSlide = slide.transform;
+            }
+            magazineRestPosition = reloadMagazine.localPosition;
+            slideRestPosition = reloadSlide.localPosition;
         }
         void CacheRenderers()
         {

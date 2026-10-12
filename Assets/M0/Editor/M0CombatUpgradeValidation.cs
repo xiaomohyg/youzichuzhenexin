@@ -76,6 +76,7 @@ namespace M0.Editor
             s.Player.ResetPlayer(new Vector3(0, 0.1f, -8)); s.Inventory.Select(0);
             if (s.Player.ThirdPerson) s.Player.TogglePerspective();
             enemy = s.Enemies[0]; enemy.ResetEnemy(new Vector3(0, 0.02f, -6.6f));
+            enemy.SlamAttackChance = 0;
             enemy.enabled = true;
             enemy.transform.rotation = Quaternion.Euler(0, 180, 0);
             Physics.SyncTransforms(); windupChecked = dodgeObserved = guardImpactObserved = rigChecked = false;
@@ -142,13 +143,12 @@ namespace M0.Editor
                                 Vector3.Dot(enemy.Rig.TelegraphRing.transform.up, Vector3.up) > 0.98f,
                                 "Warning ring is centered on the enemy with its vertical face aimed at the player");
                             Check(bodyTint.GetColor("_BaseColor").r < 0.4f, "Windup no longer tints the enemy body red");
-                            float power = Mathf.InverseLerp(0.66f, 1.12f, enemy.TelegraphTime);
-                            Check(enemy.TelegraphTime >= 0.66f && enemy.TelegraphTime <= 1.12f &&
-                                enemy.DashDuration >= 0.20f && enemy.DashDuration <= 0.30f &&
-                                enemy.AttackDuration - enemy.DashDuration >= 0.34f && enemy.AttackDuration - enemy.DashDuration <= 0.48f &&
-                                Mathf.Abs(enemy.Damage - Mathf.Lerp(10f, 22f, power)) < 0.01f &&
-                                Mathf.Abs(enemy.DashSpeed - Mathf.Lerp(8.2f, 5.8f, power)) < 0.01f,
-                                "Random enemy windup, dash and strike stay bounded with heavy/slow and light/fast variants");
+                            Check(enemy.TelegraphTime >= enemy.WindupRange.x && enemy.TelegraphTime <= enemy.WindupRange.y &&
+                                enemy.DashSpeed >= enemy.DashSpeedRange.x && enemy.DashSpeed <= enemy.DashSpeedRange.y &&
+                                enemy.DashDuration >= 0.08f && enemy.DashDuration <= 0.72f &&
+                                enemy.AttackDuration - enemy.DashDuration >= 0.38f && enemy.AttackDuration - enemy.DashDuration <= 0.52f &&
+                                enemy.Damage >= 12f && enemy.Damage <= 21f,
+                                "Random enemy windup, dash speed, travel time and strike stay within their configured ranges");
                             windupChecked = true;
                         }
                         if (enemy.State != EnemyState.Recovery) break;
